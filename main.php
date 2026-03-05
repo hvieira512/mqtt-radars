@@ -58,13 +58,13 @@ function parsePosition(string $base64, ?string $deviceCode)
         ];
 
         $people[] = [
-            "target_id"   => $bytes[0],
-            "x_dm"        => $x,
-            "y_dm"        => $y,
-            "z_cm"        => $bytes[3],
+            "person_index"   => $bytes[0],
+            "x_position_dm"        => $x,
+            "y_position_dm"        => $y,
+            "z_position_cm"        => $bytes[3],
             "time_left_s" => $bytes[12],
-            "posture"     => $postures[$bytes[13]] ?? "Unknown",
-            "event"       => $events[$bytes[14]] ?? "Unknown",
+            "posture_state"     => $postures[$bytes[13]] ?? "Unknown",
+            "last_event"       => $events[$bytes[14]] ?? "Unknown",
             "region_id"   => $bytes[15]
         ];
     }
@@ -129,19 +129,19 @@ function parseHbstatics(string $base64, ?string $deviceCode)
     $breathing_status_map = [0b00 => "Normal", 0b01 => "Hypopnea", 0b10 => "Hyperpnea", 0b11 => "Apnea"];
     $heart_rate_status_map = [0b00 => "Normal", 0b01 => "Low", 0b10 => "High", 0b11 => "Undefined"];
     $vital_signs_map = [0b00 => "Normal", 0b01 => "Undefined", 0b10 => "Undefined", 0b11 => "Weak"];
-    $sleep_states_map = [0b00 => "Undefined", 0b01 => "Light_sleep", 0b10 => "Deep_sleep", 0b11 => "Awake"];
+    $sleep_states_map = [0b00 => "Undefined", 0b01 => "Light Sleep", 0b10 => "Deep Sleep", 0b11 => "Awake"];
 
     return [
         "type" => "hbstatics",
         "device_code" => $deviceCode,
-        "breathing_realtime" => $bytes[1],
-        "heart_rate_realtime" => $bytes[2],
-        "breathing_avg" => $bytes[5],
-        "heart_rate_avg" => $bytes[6],
-        "breathing_status" => $breathing_status_map[$status_byte & 0b00000011] ?? "unknown",
-        "heart_rate_status" => $heart_rate_status_map[($status_byte & 0b00001100) >> 2] ?? "unknown",
-        "vital_signs" => $vital_signs_map[($status_byte & 0b00110000) >> 4] ?? "unknown",
-        "sleep_state" => $sleep_states_map[($status_byte & 0b11000000) >> 6] ?? "unknown"
+        "real_time_breathing" => $bytes[1],
+        "real_time_heart_rate" => $bytes[2],
+        "avg_breathing_per_minute" => $bytes[5],
+        "avg_heart_rate_per_minute" => $bytes[6],
+        "breathing_status_per_minute" => $breathing_status_map[$status_byte & 0b00000011] ?? "unknown",
+        "heart_rate_status_per_minute" => $heart_rate_status_map[($status_byte & 0b00001100) >> 2] ?? "unknown",
+        "vital_signs_status" => $vital_signs_map[($status_byte & 0b00110000) >> 4] ?? "unknown",
+        "sleep_state_status" => $sleep_states_map[($status_byte & 0b11000000) >> 6] ?? "unknown"
     ];
 }
 
@@ -164,7 +164,7 @@ $mqtt->subscribe($subscribeTopic, function ($_topic, $message) {
     if (isset($payload['hbstatics'])) $results[] = parseHbstatics($payload['hbstatics'], $payload['deviceCode'] ?? null);
 
     foreach ($results as $r) {
-        if ($r) echo "[" . $timestamp . "] " . json_encode($r, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
+        if ($r) echo "[" . $timestamp . "] " . json_encode($r, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
     }
 }, 0);
 
