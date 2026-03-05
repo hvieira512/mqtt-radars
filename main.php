@@ -22,7 +22,7 @@ $mqtt = new MqttClient($server, $port, 'php-radar-client');
 $mqtt->connect($connectionSettings, true);
 echo "[" . date('H:i:s') . "] Client connected\n";
 
-$mqtt->subscribe($subscribeTopic, function ($topic, $message) use () {
+$mqtt->subscribe($subscribeTopic, function ($topic, $message) {
 
     $timestamp = date('H:i:s');
     echo "[$timestamp] Received message on [$topic]\n";
