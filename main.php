@@ -4,12 +4,16 @@ require('vendor/autoload.php');
 
 use PhpMqtt\Client\ConnectionSettings;
 use PhpMqtt\Client\MqttClient;
+use Dotenv\Dotenv;
 
-$server   = '192.168.3.250';
-$port     = 1883;
-$username = 'havicare';
-$password = 'hitCare';
-$subscribeTopic = "radar/+/1/null";
+$dotenv = Dotenv::createImmutable(__DIR__);
+$dotenv->load();
+
+$server   = $_ENV['MQTT_SERVER'];
+$port     = (int) $_ENV['MQTT_PORT'];
+$username = $_ENV['MQTT_USERNAME'];
+$password = $_ENV['MQTT_PASSWORD'];
+$subscribeTopic = $_ENV['MQTT_TOPIC'];
 
 $connectionSettings = (new ConnectionSettings)
     ->setUsername($username)
