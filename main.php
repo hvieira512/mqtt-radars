@@ -174,6 +174,82 @@ $mqtt->subscribe($subscribeTopic, function ($_topic, $message) {
 
         echo "[" . $timestamp . "] " . json_encode($vitals, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
     }
+
+    // --- Minute-Level Sleep & Breathing Statistics
+    if (isset($payload['hbstatics'])) {
+        $raw = base64_decode($payload['hbstatics']);
+
+        if (strlen($raw) !== 16) {
+            echo "[$timestamp] Invalid hbstatics length\n";
+            return;
+        }
+
+        $bytes = array_values(unpack('C*', $raw));
+
+        // Simple values
+        $breathing_realtime = $bytes[1];
+        $heart_rate_realtime = $bytes[2];
+        $breathing_avg = $bytes[5];
+        $heart_rate_avg = $bytes[6];
+
+        // Byte 13: status/events
+        $status_byte = $bytes[13];
+
+        // Bits 1-0: breathing status
+        $breathing_status_bits = $status_byte & 0b00000011;
+        $breathing_status_map = [
+            0b00 => "Normal",
+            0b01 => "Hypopnea",
+            0b10 => "Hyperpnea",
+            0b11 => "Apnea"
+        ];
+        $breathing_status = $breathing_status_map[$breathing_status_bits] ?? "unknown";
+
+        // Bits 3-2: heart rate status
+        $heart_rate_status_bits = ($status_byte & 0b00001100) >> 2;
+        $heart_rate_status_map = [
+            0b00 => "Normal",
+            0b01 => "Low",
+            0b10 => "High",
+            0b11 => "Undefined"
+        ];
+        $heart_rate_status = $heart_rate_status_map[$heart_rate_status_bits] ?? "unknown";
+
+        // Bits 5-4: vital signs
+        $vital_signs_bits = ($status_byte & 0b00110000) >> 4;
+        $vital_signs_map = [
+            0b00 => "Normal",
+            0b01 => "Undefined",
+            0b10 => "Undefined",
+            0b11 => "Weak"
+        ];
+        $vital_signs = $vital_signs_map[$vital_signs_bits] ?? "unknown";
+
+        // Bits 7-6: sleep state
+        $sleep_state_bits = ($status_byte & 0b11000000) >> 6;
+        $sleep_states_map = [
+            0b00 => "Undefined",
+            0b01 => "Light_sleep",
+            0b10 => "Deep_sleep",
+            0b11 => "Awake"
+        ];
+        $sleep_state = $sleep_states_map[$sleep_state_bits] ?? "unknown";
+
+        $hbstatics_result = [
+            "type"                 => "hbstatics",
+            "device_code"          => $payload['deviceCode'] ?? null,
+            "breathing_realtime"   => $breathing_realtime,
+            "heart_rate_realtime"  => $heart_rate_realtime,
+            "breathing_avg"        => $breathing_avg,
+            "heart_rate_avg"       => $heart_rate_avg,
+            "breathing_status"     => $breathing_status,
+            "heart_rate_status"    => $heart_rate_status,
+            "vital_signs"          => $vital_signs,
+            "sleep_state"          => $sleep_state
+        ];
+
+        echo "[" . $timestamp . "] " . json_encode($hbstatics_result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
+    }
 }, 0);
 $mqtt->loop(true);
 $mqtt->disconnect();
