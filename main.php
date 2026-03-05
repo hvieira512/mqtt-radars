@@ -32,6 +32,7 @@ $mqtt->subscribe($subscribeTopic, function ($_topic, $message) {
 
     $payload = $data['payload'];
 
+    // --- Position data ---
     if (isset($payload['position'])) {
         $raw = base64_decode($payload['position']);
         $totalLength = strlen($raw);
@@ -50,41 +51,38 @@ $mqtt->subscribe($subscribeTopic, function ($_topic, $message) {
 
             $target_id = $bytes[0];
 
-            $x = $bytes[1]; // -127 ~ 127 decímetros
-            if ($x > 127) $x -= 256; // interpretar como signed
-
+            $x = $bytes[1];
+            if ($x > 127) $x -= 256;
             $y = $bytes[2];
             if ($y > 127) $y -= 256;
+            $z = $bytes[3];
 
-            $z = $bytes[3]; // 0 ~ 255 cm
-
-            $time_left = $bytes[12]; // seconds
+            $time_left = $bytes[12];
             $posture_code = $bytes[13];
-
             $event_code = $bytes[14];
             $region_id  = $bytes[15];
 
             $postures = [
-                0 => "initialization",
-                1 => "walking",
-                2 => "suspected_fall",
-                3 => "squatting",
-                4 => "standing",
-                5 => "fall_confirmation",
-                6 => "lying_down",
-                7 => "suspected_sitting_on_ground",
-                8 => "confirmed_sitting_on_ground",
-                9 => "sitting_up_bed",
-                10 => "suspected_sitting_up_bed",
-                11 => "confirmed_sitting_up_bed"
+                0 => "Initialization",
+                1 => "Walking",
+                2 => "Suspected Fall",
+                3 => "Squatting",
+                4 => "Standing",
+                5 => "Fall Confirmation",
+                6 => "Lying Down",
+                7 => "Suspected Sitting on Ground",
+                8 => "Confirmed Sitting on Ground",
+                9 => "Sitting Up Bed",
+                10 => "Suspected Sitting Up Bed",
+                11 => "Confirmed Sitting Up Bed"
             ];
 
             $events = [
-                0 => "no_event",
-                1 => "enter_room",
-                2 => "leave_room",
-                3 => "enter_area",
-                4 => "leave_area"
+                0 => "No Event",
+                1 => "Enter Room",
+                2 => "Leave Room",
+                3 => "Enter Area",
+                4 => "Leave Area"
             ];
 
             $people[] = [
@@ -93,8 +91,8 @@ $mqtt->subscribe($subscribeTopic, function ($_topic, $message) {
                 "y_dm"        => $y,
                 "z_cm"        => $z,
                 "time_left_s" => $time_left,
-                "posture"     => $postures[$posture_code] ?? "unknown",
-                "event"       => $events[$event_code] ?? "unknown",
+                "posture"     => $postures[$posture_code] ?? "Unknown",
+                "event"       => $events[$event_code] ?? "Unknown",
                 "region_id"   => $region_id
             ];
         }
@@ -105,8 +103,9 @@ $mqtt->subscribe($subscribeTopic, function ($_topic, $message) {
             "people"      => $people
         ];
 
-        print_r($result);
+        echo "[" . $timestamp . "] " . json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
     }
+
     // --- Minute-level stats (posstatics) ---
     if (isset($payload['posstatics'])) {
         $raw = base64_decode($payload['posstatics']);
@@ -141,9 +140,10 @@ $mqtt->subscribe($subscribeTopic, function ($_topic, $message) {
             "breathing_active" => $breathingActive,
         ];
 
-        print_r($minuteStats);
+        echo "[" . $timestamp . "] " . json_encode($minuteStats, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
     }
 
+    // --- Heartbreath data ---
     if (isset($payload['heartbreath'])) {
         $raw = base64_decode($payload['heartbreath']);
         if (strlen($raw) !== 16) {
@@ -165,14 +165,15 @@ $mqtt->subscribe($subscribeTopic, function ($_topic, $message) {
         ];
 
         $vitals = [
+            "type"        => "vitals",
+            "device_code" => $payload['deviceCode'] ?? null,
             "breathing"   => $breathing,
             "heart_rate"  => $heart_rate,
             "sleep_state" => $sleep_states[$sleep_state_bits],
         ];
 
-        print_r($vitals);
+        echo "[" . $timestamp . "] " . json_encode($vitals, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
     }
 }, 0);
-
 $mqtt->loop(true);
 $mqtt->disconnect();
