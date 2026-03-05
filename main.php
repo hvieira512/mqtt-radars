@@ -5,13 +5,12 @@ require('vendor/autoload.php');
 use PhpMqtt\Client\ConnectionSettings;
 use PhpMqtt\Client\MqttClient;
 
-$server   = 'localhost';
+$server   = '192.168.3.250';
 $port     = 1883;
 $username = 'havicare';
 $password = 'hitCare';
 
 $subscribeTopic = "radar/+/1/null";
-$apiEndpoint = "http://localhost:8000/api/telemetry";
 
 $connectionSettings = (new ConnectionSettings)
     ->setUsername($username)
@@ -22,10 +21,8 @@ $mqtt = new MqttClient($server, $port, 'php-radar-client');
 $mqtt->connect($connectionSettings, true);
 echo "[" . date('H:i:s') . "] Client connected\n";
 
-$mqtt->subscribe($subscribeTopic, function ($topic, $message) {
-
+$mqtt->subscribe($subscribeTopic, function ($_topic, $message) {
     $timestamp = date('H:i:s');
-    echo "[$timestamp] Received message on [$topic]\n";
 
     $data = json_decode($message, true);
     if (!$data || !isset($data['payload'])) {
@@ -35,6 +32,81 @@ $mqtt->subscribe($subscribeTopic, function ($topic, $message) {
 
     $payload = $data['payload'];
 
+    if (isset($payload['position'])) {
+        $raw = base64_decode($payload['position']);
+        $totalLength = strlen($raw);
+
+        if ($totalLength % 16 !== 0) {
+            echo "[$timestamp] Invalid position length: $totalLength\n";
+            return;
+        }
+
+        $num_people = $totalLength / 16;
+        $people = [];
+
+        for ($i = 0; $i < $num_people; $i++) {
+            $chunk = substr($raw, $i * 16, 16);
+            $bytes = array_values(unpack('C*', $chunk));
+
+            $target_id = $bytes[0];
+
+            $x = $bytes[1]; // -127 ~ 127 decímetros
+            if ($x > 127) $x -= 256; // interpretar como signed
+
+            $y = $bytes[2];
+            if ($y > 127) $y -= 256;
+
+            $z = $bytes[3]; // 0 ~ 255 cm
+
+            $time_left = $bytes[12]; // seconds
+            $posture_code = $bytes[13];
+
+            $event_code = $bytes[14];
+            $region_id  = $bytes[15];
+
+            $postures = [
+                0 => "initialization",
+                1 => "walking",
+                2 => "suspected_fall",
+                3 => "squatting",
+                4 => "standing",
+                5 => "fall_confirmation",
+                6 => "lying_down",
+                7 => "suspected_sitting_on_ground",
+                8 => "confirmed_sitting_on_ground",
+                9 => "sitting_up_bed",
+                10 => "suspected_sitting_up_bed",
+                11 => "confirmed_sitting_up_bed"
+            ];
+
+            $events = [
+                0 => "no_event",
+                1 => "enter_room",
+                2 => "leave_room",
+                3 => "enter_area",
+                4 => "leave_area"
+            ];
+
+            $people[] = [
+                "target_id"   => $target_id,
+                "x_dm"        => $x,
+                "y_dm"        => $y,
+                "z_cm"        => $z,
+                "time_left_s" => $time_left,
+                "posture"     => $postures[$posture_code] ?? "unknown",
+                "event"       => $events[$event_code] ?? "unknown",
+                "region_id"   => $region_id
+            ];
+        }
+
+        $result = [
+            "type"        => "position",
+            "device_code" => $payload['deviceCode'] ?? null,
+            "people"      => $people
+        ];
+
+        print_r($result);
+    }
     // --- Minute-level stats (posstatics) ---
     if (isset($payload['posstatics'])) {
         $raw = base64_decode($payload['posstatics']);
@@ -70,22 +142,8 @@ $mqtt->subscribe($subscribeTopic, function ($topic, $message) {
         ];
 
         print_r($minuteStats);
-
-        // Enviar para a API
-        // try {
-        //     $ch = curl_init($apiEndpoint);
-        //     curl_setopt($ch, CURLOPT_POST, true);
-        //     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($minuteStats));
-        //     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        //     curl_setopt($ch, CURLOPT_TIMEOUT, 1);
-        //     curl_exec($ch);
-        //     curl_close($ch);
-        // } catch (Exception $e) {
-        //     echo "[$timestamp] Error sending minute_stats: " . $e->getMessage() . "\n";
-        // }
     }
 
-    // --- Heart/breath vitals ---
     if (isset($payload['heartbreath'])) {
         $raw = base64_decode($payload['heartbreath']);
         if (strlen($raw) !== 16) {
@@ -93,34 +151,28 @@ $mqtt->subscribe($subscribeTopic, function ($topic, $message) {
             return;
         }
 
+        $breathing = ord($raw[1]);
+        $heart_rate = ord($raw[2]);
+
+        $status_byte = ord($raw[13]);
+        $sleep_state_bits = ($status_byte & 0b11000000) >> 6;
+
+        $sleep_states = [
+            0b00 => "Undefined",
+            0b01 => "Light Sleep",
+            0b10 => "Deep Sleep",
+            0b11 => "Awake",
+        ];
+
         $vitals = [
-            "type"         => "vitals",
-            "device_code"  => $payload['deviceCode'] ?? null,
-            "respiracao"   => $raw[1],
-            "rpm"          => $raw[2],
-            "pessoas"      => $raw[15],
-            "postura_code" => $raw[10],
+            "breathing"   => $breathing,
+            "heart_rate"  => $heart_rate,
+            "sleep_state" => $sleep_states[$sleep_state_bits],
         ];
 
         print_r($vitals);
-
-        // Enviar para a API
-        // try {
-        //     $ch = curl_init($apiEndpoint);
-        //     curl_setopt($ch, CURLOPT_POST, true);
-        //     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($vitals));
-        //     curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        //     curl_setopt($ch, CURLOPT_TIMEOUT, 1);
-        //     curl_exec($ch);
-        //     curl_close($ch);
-        // } catch (Exception $e) {
-        //     echo "[$timestamp] Error sending vitals: " . $e->getMessage() . "\n";
-        // }
     }
 }, 0);
 
-// ---------------- START LOOP ----------------
-while (true) {
-    $mqtt->loop(false); // non-blocking loop, processa mensagens em tempo real
-    usleep(500000);     // 0.5s de espera para não consumir CPU em excesso
-}
+$mqtt->loop(true);
+$mqtt->disconnect();
