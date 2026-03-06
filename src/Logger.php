@@ -25,7 +25,7 @@ class Logger
 
         echo "[$timestamp] Type: {$data['type']}, Device: {$data['device_code']}\n";
 
-        if (isset($data['people'])) {
+        if (isset($data['people']) && is_array($data['people'])) {
             foreach ($data['people'] as $p) {
                 echo "  Person {$p['person_index']}: ";
                 echo "x={$p['x_position_dm']} dm, ";
