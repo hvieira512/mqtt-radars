@@ -14,23 +14,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // ---- Hobacare account info ----
-define('APP_ID', $_ENV['APP_ID']);
-define('APP_SECRET', $_ENV['SECRET']);
-define('USERNAME', $_ENV['HOBACARE_USERNAME']);
-define('PASSWORD', $_ENV['HOBACARE_PASSWORD']);
-define('LOGIN_URL', $_ENV['HOBACARE_URL']);
+define('APP_ID', 'ql692202504222240166abe');
+define('APP_SECRET', '1b6fc3d804ce06b087660d282c313ac4fed200c2');
+define('USERNAME', 'test9');
+define('PASSWORD', 'test2024');
+define('LOGIN_URL', 'https://qinglanst.com/prod-api/login');
 
 define('CREDENTIALS_FILE', __DIR__ . '/credentials.json');
 define('CREDENTIALS_TTL', 3600); // 1 hour
 
 // ---- Login and cache credentials ----
-function login()
-{
+function login() {
     $data = [
         'username' => USERNAME,
         'password' => PASSWORD,
         'pattern'  => 'monitor',
-        'grantType' => 'password'
+        'grantType'=> 'password'
     ];
 
     $ch = curl_init(LOGIN_URL);
@@ -40,7 +39,7 @@ function login()
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
 
     $response = curl_exec($ch);
-    if (curl_errno($ch)) {
+    if(curl_errno($ch)) {
         http_response_code(500);
         echo json_encode(['error' => curl_error($ch)]);
         exit();
@@ -68,8 +67,7 @@ function login()
 }
 
 // ---- Get cached credentials or login ----
-function getCredentials()
-{
+function getCredentials() {
     if (file_exists(CREDENTIALS_FILE)) {
         $cache = json_decode(file_get_contents(CREDENTIALS_FILE), true);
         if (time() - $cache['timestamp'] < CREDENTIALS_TTL) {
@@ -80,8 +78,7 @@ function getCredentials()
 }
 
 // ---- Flatten data for signature ----
-function flattenObject($data)
-{
+function flattenObject($data) {
     $pairs = [];
     foreach ($data as $key => $value) {
         if (is_array($value)) {
@@ -98,8 +95,7 @@ function flattenObject($data)
     return $pairs;
 }
 
-function generateAuthHeaders($credentials, $data = [])
-{
+function generateAuthHeaders($credentials, $data = []) {
     $timestamp = time();
     $serialized = "";
 
@@ -135,7 +131,7 @@ unset($params['endpoint']); // remove endpoint key
 $authHeaders = generateAuthHeaders($credentials, $params);
 
 // Build Hobacare URL
-$url = "https://radarconsole.com/prod-api/thirdparty/v2/$endpoint";
+$url = "https://qinglanst.com/prod-api/thirdparty/v2/$endpoint";
 if (!empty($params)) {
     $url .= "?" . http_build_query($params);
 }
