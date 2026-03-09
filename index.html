@@ -11,8 +11,6 @@
     <link rel="icon" type="image/x-icon" href="./assets/images/logo.jpeg">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/poppins@5.2.7/index.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/konva@9.4.1/konva.min.js"></script>
-    <script src="./assets/vendor/konva.min.js"></script>
 </head>
 
 <body class="bg-light">
@@ -38,7 +36,7 @@
                                     Monitorização de Trajetos
                                 </div>
                                 <div class="card-body">
-                                    <div id="radar-map" class="w-100"></div>
+                                    <div id="radar-map" class="w-100" style="height: 600px;"></div>
                                 </div>
                             </div>
                         </div>
@@ -56,7 +54,37 @@
                             Eventos
                         </div>
                         <div class="card-body">
-                            Alarmes, Eventos, Registos do dispositivo
+                            <ul class="nav nav-tabs" id="deviceTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="alarms-tab" data-bs-toggle="tab" data-bs-target="#alarms"
+                                        type="button">
+                                        Alarmes
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="events-tab" data-bs-toggle="tab" data-bs-target="#events" type="button">
+                                        Eventos
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="records-tab" data-bs-toggle="tab" data-bs-target="#records" type="button">
+                                        Registos do dispositivo
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="info-tab" data-bs-toggle="tab" data-bs-target="#info" type="button">
+                                        Mais Informações
+                                    </button>
+                                </li>
+                            </ul>
+                        
+                            <!-- Tab content -->
+                            <div class="tab-content mt-3">
+                                <div class="tab-pane fade show active" id="alarms"> Conteúdo dos alarmes </div>
+                                <div class="tab-pane fade" id="events"> Conteúdo dos eventos </div>
+                                <div class="tab-pane fade" id="records"> Conteúdo dos registos do dispositivo </div>
+                                <div class="tab-pane fade" id="info"> Mais informações do dispositivo </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -67,6 +95,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
         crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/konva@10.0.0-1/konva.min.js"></script>
     <script type="module" src="./assets/js/pages/home/main.js"></script>
 </body>
 

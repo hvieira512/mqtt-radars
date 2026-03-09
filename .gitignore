@@ -2,5 +2,7 @@ vendor/
 .idea/
 .vscode/
 .env
+node_modules/
 composer.**
 credentials.json
+package**
