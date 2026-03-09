@@ -1,5 +1,6 @@
-import { BASE_URL, sendRequest } from "../../auth.js";
+import { sendRequest } from "../../auth.js";
 import { initTooltips, removeLoading, renderLoading } from "../../utils.js";
+import "./modal.js";
 
 const MODEL_MAP = {
     1: "HC1",
@@ -21,7 +22,6 @@ const radarsWrapper = document.getElementById("radars-wrappers");
 
 const CACHE_KEY = "hobacare_devices";
 const CACHE_TIME_KEY = "hobacare_devices_timestamp";
-
 const MAX_AGE = 30000;
 
 const getCachedDevices = () => {
@@ -30,11 +30,15 @@ const getCachedDevices = () => {
 
     if (!cached || !timestamp) return null;
 
-    const age = Date.now() - Number(timestamp);
-
-    if (age > MAX_AGE) return null;
-
-    return JSON.parse(cached);
+    try {
+        const parsed = JSON.parse(cached);
+        return parsed;
+    } catch (e) {
+        console.warn("Invalid cached devices, clearing cache");
+        localStorage.removeItem(CACHE_KEY);
+        localStorage.removeItem(CACHE_TIME_KEY);
+        return null;
+    }
 };
 
 const cacheDevices = (devices) => {
@@ -46,21 +50,23 @@ const fetchDevices = async () => {
     const cached = getCachedDevices();
     if (cached) return cached;
 
-    const { data } = await sendRequest(
-        `${BASE_URL}/thirdparty/v2/getDeviceInfo`,
-    );
+    const res = await sendRequest("getDeviceInfo");
+    const { data } = res;
+    if (!data) {
+        console.error("Invalid response from proxy");
+        return [];
+    }
 
     cacheDevices(data);
-
     return data;
 };
 
 const renderDevicesList = async () => {
-    const devices = await fetchDevices();
-
     try {
         renderLoading(radarsWrapper);
+        const devices = await fetchDevices();
         radarsWrapper.innerHTML = "";
+
         devices.forEach((device) => {
             const modelName = MODEL_MAP[device.modelNumber] || "Unknown model";
             const isOnline = device.isOnline === "0";
@@ -73,23 +79,20 @@ const renderDevicesList = async () => {
             card.className = "col-md-4 col-lg-3";
 
             card.innerHTML = `
-                <div role="button" class="card device-card shadow-sm h-100" data-bs-toggle="modal" data-bs-target="#radarModal" data-id="${device.uid}">
+                <div role="button" class="card device-card shadow-sm h-100" 
+                     data-bs-toggle="modal" data-bs-target="#radarModal" data-id="${device.uid}">
                      
                     <div class="card-body d-flex flex-column">
-    
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="device-model fw-bold">Modelo ${modelName}</span>
                             ${wifiIcon}
                         </div>
-    
                         <h5 class="device-name mb-1">
                             ${device.eqt_name || "Unnamed Device"}
                         </h5>
-    
                         <small class="text-muted">
                             UID: ${device.uid}
                         </small>
-    
                     </div>
                 </div>
             `;
@@ -105,9 +108,4 @@ const renderDevicesList = async () => {
     }
 };
 
-const init = async () => {
-    await renderDevicesList();
-    initTooltips();
-};
-
-init();
+await renderDevicesList();

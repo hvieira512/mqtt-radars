@@ -11,6 +11,8 @@
     <link rel="icon" type="image/x-icon" href="./assets/images/logo.jpeg">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/poppins@5.2.7/index.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/konva@9.4.1/konva.min.js"></script>
+    <script src="./assets/vendor/konva.min.js"></script>
 </head>
 
 <body class="bg-light">
@@ -25,11 +27,38 @@
         <div class="modal-dialog modal-fullscreen">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="radarModalLabel">Radar Details</h5>
+                    <h5 class="modal-title" id="radarModalLabel">Detalhes do Radar</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div id="radarDetails" class="container"></div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-12 col-xl-9">
+                            <div id="liveRadarMap" class="card shadow">
+                                <div class="card-header mb-0">
+                                    Monitorização de Trajetos
+                                </div>
+                                <div class="card-body">
+                                    <div id="radar-map" class="w-100"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-xl-3">
+                            <div id="liveRadarInfo" class="card shadow">
+                                <div class="card-header mb-0">
+                                    Sinais Vitais
+                                </div>
+                                <div class="card-body"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="liveRadarEvents" class="card shadow">
+                        <div class="card-header mb-0">
+                            Eventos
+                        </div>
+                        <div class="card-body">
+                            Alarmes, Eventos, Registos do dispositivo
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -38,7 +67,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
         crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/js-sha1@0.6.0/src/sha1.min.js"></script>
     <script type="module" src="./assets/js/pages/home/main.js"></script>
 </body>
 
