@@ -31,7 +31,6 @@ const renderLiveMap = (data) => {
         layer = null;
     }
 
-    // Ensure container has height
     if (container.offsetHeight === 0) container.style.height = "400px";
 
     stage = new Konva.Stage({
@@ -45,30 +44,31 @@ const renderLiveMap = (data) => {
 
     const cw = container.offsetWidth;
     const ch = container.offsetHeight;
-    const padding = 20;
+    const padding = 30; // slightly more padding for labels
 
-    // --- 1. Parse room rectangle ---
+    // ────────────────────────────────────────────────
+    // 1. Parse & reorder room boundary
+    // ────────────────────────────────────────────────
     if (!data.rectangle) return;
 
     let rectCoords = data.rectangle
         .replace(/[{}]/g, "")
         .split(";")
-        .map((p) => p.trim().split(",").map(Number)) // Trim whitespace
+        .map((p) => p.trim().split(",").map(Number))
         .flat();
 
-    // Reorder to perimeter: lowLeft, lowRight, upRight, upLeft (BL -> BR -> TR -> TL)
+    // Reorder: lowLeft → lowRight → upRight → upLeft
     rectCoords = [
         rectCoords[0],
-        rectCoords[1], // lowLeft
+        rectCoords[1],
         rectCoords[2],
-        rectCoords[3], // lowRight
+        rectCoords[3],
         rectCoords[6],
-        rectCoords[7], // upRight
+        rectCoords[7],
         rectCoords[4],
-        rectCoords[5], // upLeft
+        rectCoords[5],
     ];
 
-    // Compute bounds for scaling
     const bounds = getBounds(rectCoords);
     const scaleX = (cw - 2 * padding) / bounds.width;
     const scaleY = (ch - 2 * padding) / bounds.height;
@@ -81,40 +81,62 @@ const renderLiveMap = (data) => {
         const transformed = [];
         for (let i = 0; i < coords.length; i += 2) {
             const x = (coords[i] + offsetX) * scale + padding;
-            const y = ch - ((coords[i + 1] + offsetY) * scale + padding); // flip Y
+            const y = ch - ((coords[i + 1] + offsetY) * scale + padding);
             transformed.push(x, y);
         }
         return transformed;
     };
 
-    // Draw room boundary
+    // Room boundary (no fill, just outline)
     layer.add(
         new Konva.Line({
             points: transformCoords(rectCoords),
-            stroke: "blue",
-            strokeWidth: 2,
+            stroke: "gray",
+            strokeWidth: 3,
             closed: true,
         }),
     );
 
-    // --- 2. Draw declared areas ---
+    // ────────────────────────────────────────────────
+    // 2. Parse & draw declared areas + labels
+    // ────────────────────────────────────────────────
+    const typeToLabel = {
+        0: "Inválido",
+        1: "Customizado",
+        2: "Cama",
+        3: "Interferência",
+        4: "Porta",
+        5: "Cama de Monitorizaçãi",
+        6: "Área de alarme",
+    };
+
+    const typeToColor = {
+        4: "#ffa500", // orange - door
+        5: "#32cd32", // lime green - monitoring bed
+        6: "#ff4500", // orange-red - warning
+        3: "#808080", // gray - interference
+        default: "#a9a9a9", // dark gray for others
+    };
+
     if (data.declare_area) {
         const areas = data.declare_area
             .split("},")
-            .map((a) => a.replace(/[{}]/g, "").trim()); // Trim whitespace
+            .map((a) => a.replace(/[{}]/g, "").trim())
+            .filter((a) => a);
 
         areas.forEach((areaStr) => {
-            if (!areaStr) return; // Skip empty (trailing comma)
             const vals = areaStr.split(",").map(Number);
-            if (vals.length < 10) return; // Expect 10 vals (key + type + 8 coords)
+            if (vals.length < 10) return;
 
+            const coordKey = vals[0];
             const type = vals[1];
+
             let coords = [];
             for (let i = 2; i < vals.length; i += 2) {
                 coords.push(vals[i], vals[i + 1]);
             }
 
-            // Reorder to perimeter: lowLeft, lowRight, upRight, upLeft
+            // Reorder to perimeter order
             coords = [
                 coords[0],
                 coords[1], // lowLeft
@@ -126,34 +148,62 @@ const renderLiveMap = (data) => {
                 coords[5], // upLeft
             ];
 
-            // Color logic (extended for warning area)
-            let strokeColor = "gray";
-            if (type === 5)
-                strokeColor = "green"; // Monitoring bed
-            else if (type === 4)
-                strokeColor = "orange"; // Door
-            else if (type === 6) strokeColor = "red"; // Warning area
+            const color = typeToColor[type] || typeToColor.default;
+            const labelText = typeToLabel[type] || `Area ${coordKey}`;
 
+            const points = transformCoords(coords);
+
+            // Draw area outline + semi-transparent fill
             layer.add(
                 new Konva.Line({
-                    points: transformCoords(coords),
-                    stroke: strokeColor,
-                    strokeWidth: 2,
+                    points,
+                    stroke: color,
+                    strokeWidth: 2.5,
                     closed: true,
-                    fill: `${strokeColor}20`, // Semi-transparent fill (optional; hex with alpha)
+                    fill: color + "33", // hex + alpha (33 ≈ 20%)
+                }),
+            );
+
+            // Calculate approximate center for label
+            const areaBounds = getBounds(coords);
+            const centerX = (areaBounds.minX + areaBounds.maxX) / 2;
+            const centerY = (areaBounds.minY + areaBounds.maxY) / 2;
+            const [labelX, labelY] = transformCoords([centerX, centerY]);
+
+            // Add label
+            console.log(
+                `Adding label "${labelText}" at (${labelX.toFixed(1)}, ${labelY.toFixed(1)}) with color ${color}`,
+            );
+            layer.add(
+                new Konva.Text({
+                    x: labelX - 60, // rough centering - adjust as needed
+                    y: labelY - 10,
+                    text: labelText,
+                    fontSize: 14,
+                    fontFamily: "Poppins",
+                    fill: color,
+                    shadowColor: "white",
+                    shadowBlur: 5,
+                    shadowOffsetX: 1,
+                    shadowOffsetY: 1,
+                    shadowOpacity: 0.7,
+                    align: "center",
+                    width: 120, // helps with centering
                 }),
             );
         });
     }
 
-    // --- 3. Optional: Draw radar position at (0,0) ---
+    // Radar position marker
     const radarPos = transformCoords([0, 0]);
     layer.add(
         new Konva.Circle({
             x: radarPos[0],
             y: radarPos[1],
-            radius: 5,
+            radius: 6,
             fill: "red",
+            stroke: "white",
+            strokeWidth: 2,
         }),
     );
 
