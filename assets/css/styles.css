@@ -1,0 +1,22 @@
+* {
+    font-family: 'Poppins', sans-serif;
+}
+
+.device-card {
+    border-radius: 12px;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.device-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 18px rgba(0,0,0,0.12);
+}
+
+.device-model {
+    font-size: 14px;
+    color: #555;
+}
+
+.device-name {
+    font-size: 18px;
+}
