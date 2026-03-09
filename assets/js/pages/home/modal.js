@@ -4,6 +4,7 @@ import { renderLoading, removeLoading } from "../../utils.js";
 const modal = document.getElementById("radarModal");
 const modalTitle = modal.querySelector(".modal-title");
 const container = document.getElementById("radar-map");
+const infoTab = document.getElementById("info");
 
 let currUID = null;
 let stage = null;
@@ -210,7 +211,6 @@ const renderLiveMap = (data) => {
 };
 
 const renderInfo = (data) => {
-    const infoTab = document.getElementById("info");
     if (!infoTab) return;
 
     infoTab.innerHTML = ""; // Clear previous content
@@ -451,6 +451,7 @@ modal.addEventListener("hidden.bs.modal", () => {
     currUID = null;
     delete modal.dataset.id;
     modalTitle.innerHTML = "Detalhes do Radar";
+    infoTab.innerHTML = "";
     if (!stage) return;
     stage.destroy();
     stage = null;
