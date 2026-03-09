@@ -1,6 +1,9 @@
 import { sendRequest } from "../../auth.js";
+import { renderLoading, removeLoading } from "../../utils.js";
 
 const modal = document.getElementById("radarModal");
+const modalTitle = modal.querySelector(".modal-title");
+const container = document.getElementById("radar-map");
 
 let currUID = null;
 let stage = null;
@@ -21,7 +24,6 @@ const getBounds = (coords) => {
 };
 
 const renderLiveMap = (data) => {
-    const container = document.getElementById("radar-map");
     if (!container) return console.error("Radar container not found!");
     container.innerHTML = "";
 
@@ -171,12 +173,9 @@ const renderLiveMap = (data) => {
             const [labelX, labelY] = transformCoords([centerX, centerY]);
 
             // Add label
-            console.log(
-                `Adding label "${labelText}" at (${labelX.toFixed(1)}, ${labelY.toFixed(1)}) with color ${color}`,
-            );
             layer.add(
                 new Konva.Text({
-                    x: labelX - 60, // rough centering - adjust as needed
+                    x: labelX - 60,
                     y: labelY - 10,
                     text: labelText,
                     fontSize: 14,
@@ -210,6 +209,222 @@ const renderLiveMap = (data) => {
     layer.draw();
 };
 
+const renderInfo = (data) => {
+    const infoTab = document.getElementById("info");
+    if (!infoTab) return;
+
+    infoTab.innerHTML = ""; // Clear previous content
+
+    // Helper: format values nicely
+    const formatValue = (val) => {
+        if (val === undefined || val === null || val === "") return "—";
+        if (typeof val === "string" && val.trim() === "") return "—";
+        return val;
+    };
+
+    // Helper: map working mode
+    const getWorkingMode = (mode) => {
+        const modes = {
+            15: "Monitorização de Cama",
+            11: "Respiração e Sono",
+            7: "Monitorização de Queda",
+            3: "Rastreamento de Pessoas",
+        };
+        return modes[mode] || `Desconhecido (${mode})`;
+    };
+
+    // Helper: map signal strength (Wi-Fi / 4G)
+    const getSignalStrength = (val) => {
+        if (!val || val === "-") return "—";
+        const num = Number(val);
+        if (isNaN(num)) return val;
+
+        if (val.includes("CSQ")) {
+            // 4G case
+            if (num >= 23) return `${val} — Forte`;
+            if (num >= 15) return `${val} — Médio`;
+            if (num >= 0) return `${val} — Fraco`;
+            return `${val} — Sem sinal`;
+        }
+        // Wi-Fi
+        if (num <= -100) return `${val} — Sem Sinal`;
+        if (num > -100 && num <= -88) return `${val} — Fraco`;
+        if (num > -88 && num <= -66) return `${val} — OK`;
+        if (num > -66 && num <= -55) return `${val} — Bom`;
+        return `${val} — Forte`;
+    };
+
+    // Helper: parse postureParams
+    const parsePostureParams = (str) => {
+        if (!str) return { fallTime: "—", bits: "—", sitTime: "—" };
+        const parts = str.split(",").map((s) => s.trim());
+        if (parts.length < 3) return { fallTime: str, bits: "—", sitTime: "—" };
+
+        let fallSec = Number(parts[0]) * 10;
+        if (parts[0] === "0") fallSec = 30;
+
+        const bits = Number(parts[1]);
+        const bitDesc = [];
+        if (bits & 1) bitDesc.push("Alarme de sentar/levantar LIGADO");
+        if (bits & 2) bitDesc.push("Deteção de Postura LIGADO");
+        if (bits & 4) bitDesc.push("Alarme para sentar na cama LIGADO");
+
+        let sitSec = Number(parts[2]) * 10;
+        if (parts[2] === "0") sitSec = 30;
+
+        return {
+            fallTime: fallSec === 0 ? "Padrão (30s)" : `${fallSec} segundos`,
+            bits: bitDesc.length ? bitDesc.join(", ") : "Nenhum ativo",
+            sitTime: sitSec === 0 ? "Padrão (30s)" : `${sitSec} segundos`,
+        };
+    };
+
+    // ────────────────────────────────────────────────
+    // Build content
+    // ────────────────────────────────────────────────
+    let html = `
+        <div class="container-fluid py-3">
+            <div class="row g-4">
+                <!-- Main Settings Card -->
+                <div class="col-lg-6">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header bg-primary-subtle text-primary h5 mb-0">
+                            Configuração do Radar
+                        </div>
+                        <div class="card-body">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-5 text-muted">Modo atual</dt>
+                                <dd class="col-sm-7">${getWorkingMode(data.radar_func_ctrl)}</dd>
+
+                                <dt class="col-sm-5 text-muted">Método de Instalação</dt>
+                                <dd class="col-sm-7">${formatValue(data.radar_install_style)}</dd>
+
+                                <dt class="col-sm-5 text-muted">Altura de Instalação</dt>
+                                <dd class="col-sm-7">${formatValue(data.radar_install_height)} dm</dd>
+
+                                <dt class="col-sm-5 text-muted">Força do Sinal</dt>
+                                <dd class="col-sm-7">${getSignalStrength(data.signal_intensity)}</dd>
+
+                                <dt class="col-sm-5 text-muted">Inclinação do Radar (X:Y:Z:V)</dt>
+                                <dd class="col-sm-7">${formatValue(data.accelera)}</dd>
+
+                                <dt class="col-sm-5 text-muted">Tempo de Compilação (Radar)</dt>
+                                <dd class="col-sm-7">${formatValue(data.radar_compile_time)}</dd>
+
+                                <dt class="col-sm-5 text-muted">Tempo de Compilação (App)</dt>
+                                <dd class="col-sm-7">${formatValue(data.app_compile_time)}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alarm & Area Settings Card -->
+                <div class="col-lg-6">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header bg-info-subtle text-info h5 mb-0">
+                            Alarmes e Deteção
+                        </div>
+                        <div class="card-body">
+                            <dl class="row mb-0">
+                                <dt class="col-sm-5 text-muted">Tempo de Queda Suspeita</dt>
+                                <dd class="col-sm-7">${formatValue(data.suspected_fall_time)} × 10s</dd>
+
+                                <dt class="col-sm-5 text-muted">Alarme de Saída da Cama</dt>
+                                <dd class="col-sm-7">${data.leaveAlarmSwitch === "0" ? "ON" : data.leaveAlarmSwitch === "1" ? "OFF" : "—"}</dd>
+
+                                <dt class="col-sm-5 text-muted">Tempo de Ativação da Saída</dt>
+                                <dd class="col-sm-7">${formatValue(data.leaveDetectionTime)} min</dd>
+
+                                <dt class="col-sm-5 text-muted">Faixa de Detecção da Saída</dt>
+                                <dd class="col-sm-7">${formatValue(data.leaveDetectionRange)}</dd>
+
+                                <dt class="col-sm-5 text-muted">Monitoramento de Ausência Longa</dt>
+                                <dd class="col-sm-7">${data.longAwaySwitch === "0" ? "ON" : data.longAwaySwitch === "1" ? "OFF" : "—"}</dd>
+
+                                <dt class="col-sm-5 text-muted">Alarme de Detenção</dt>
+                                <dd class="col-sm-7">${data.detentionAlarmSwitch === "0" ? "ON" : data.detentionAlarmSwitch === "1" ? "OFF" : "—"}</dd>
+
+                                <dt class="col-sm-5 text-muted">Tempo de Ativação da Detenção</dt>
+                                <dd class="col-sm-7">${formatValue(data.entryDetectionTime)} min</dd>
+
+                                <dt class="col-sm-5 text-muted">Sinais Vitais Fracos</dt>
+                                <dd class="col-sm-7">${data.suddenDeathSwitch === "0" ? "ON" : data.suddenDeathSwitch === "1" ? "OFF" : "—"}</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Posture & Breath/Heart Card (full width if needed) -->
+                <div class="col-12">
+                    <div class="card shadow-sm border-0">
+                        <div class="card-header bg-secondary-subtle text-secondary h5 mb-0">
+                            Postura e Parâmetros de Sinais Vitais
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold mb-3">Parâmetros de Postura</h6>
+                                    ${(() => {
+                                        const p = parsePostureParams(
+                                            data.postureParams,
+                                        );
+                                        return `
+                                            <dl class="row small mb-0">
+                                                <dt class="col-sm-5 text-muted">Tempo de Queda Suspeita</dt>
+                                                <dd class="col-sm-7">${p.fallTime}</dd>
+                                                <dt class="col-sm-5 text-muted">Funcionalidades ativas</dt>
+                                                <dd class="col-sm-7">${p.bits}</dd>
+                                                <dt class="col-sm-5 text-muted">Tempo de Alarme de Sentado</dt>
+                                                <dd class="col-sm-7">${p.sitTime}</dd>
+                                            </dl>
+                                        `;
+                                    })()}
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="fw-bold mb-3">Faixa de Frequência Cardíaca e Respiratória</h6>
+                                    ${(() => {
+                                        if (!data.heart_breath_param)
+                                            return "<p class='text-muted'>—</p>";
+                                        const vals = data.heart_breath_param
+                                            .replace(/[\[\]]/g, "")
+                                            .split(",")
+                                            .map(
+                                                (v) => Number(v.trim()) & 0xff,
+                                            ); // handle negative → unsigned
+                                        if (vals.length < 7)
+                                            return "<p class='text-muted'>Formato inválido</p>";
+
+                                        return `
+                                            <dl class="row small mb-0">
+                                                <dt class="col-sm-6 text-muted">Respiração Superior</dt>
+                                                <dd class="col-sm-6">${vals[0]}</dd>
+                                                <dt class="col-sm-6 text-muted">Frequência Cardíaca Superior</dt>
+                                                <dd class="col-sm-6">${vals[1]}</dd>
+                                                <dt class="col-sm-6 text-muted">Respiração Inferior</dt>
+                                                <dd class="col-sm-6">${vals[2]}</dd>
+                                                <dt class="col-sm-6 text-muted">Frequência Cardíaca Inferior</dt>
+                                                <dd class="col-sm-6">${vals[3]}</dd>
+                                                <dt class="col-sm-6 text-muted">Medição Contínua</dt>
+                                                <dd class="col-sm-6">${vals[4] ? "LIGADO" : "DESLIGADO"}</dd>
+                                                <dt class="col-sm-6 text-muted">Tempo de Ativação Fraco</dt>
+                                                <dd class="col-sm-6">${vals[5]} min</dd>
+                                                <dt class="col-sm-6 text-muted">Sensatividade</dt>
+                                                <dd class="col-sm-6">${vals[6]}</dd>
+                                            </dl>
+                                        `;
+                                    })()}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    infoTab.innerHTML = html;
+};
+
 modal.addEventListener("shown.bs.modal", async (e) => {
     currUID = e.relatedTarget.dataset.id;
     if (!currUID) return;
@@ -217,23 +432,27 @@ modal.addEventListener("shown.bs.modal", async (e) => {
     modal.dataset.id = currUID;
 
     try {
+        renderLoading(container);
         const response = await sendRequest("deviceProp", { uid: currUID });
         if (!response || !response.data)
             return console.warn("No data for UID", currUID);
 
+        modalTitle.innerHTML = `Detalhes do Radar - ${currUID}`;
         renderLiveMap(response.data);
+        renderInfo(response.data);
     } catch (err) {
         console.error("Error fetching device properties:", err);
+    } finally {
+        removeLoading(container);
     }
 });
 
 modal.addEventListener("hidden.bs.modal", () => {
     currUID = null;
     delete modal.dataset.id;
-
-    if (stage) {
-        stage.destroy();
-        stage = null;
-        layer = null;
-    }
+    modalTitle.innerHTML = "Detalhes do Radar";
+    if (!stage) return;
+    stage.destroy();
+    stage = null;
+    layer = null;
 });
