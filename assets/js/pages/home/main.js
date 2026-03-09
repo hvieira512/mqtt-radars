@@ -1,4 +1,5 @@
 import { BASE_URL, sendRequest } from "../../auth.js";
+import { initTooltips, removeLoading, renderLoading } from "../../utils.js";
 
 const MODEL_MAP = {
     1: "HC1",
@@ -57,52 +58,56 @@ const fetchDevices = async () => {
 const renderDevicesList = async () => {
     const devices = await fetchDevices();
 
-    radarsWrapper.innerHTML = "";
+    try {
+        renderLoading(radarsWrapper);
+        radarsWrapper.innerHTML = "";
+        devices.forEach((device) => {
+            const modelName = MODEL_MAP[device.modelNumber] || "Unknown model";
+            const isOnline = device.isOnline === "0";
 
-    devices.forEach((device) => {
-        const modelName = MODEL_MAP[device.modelNumber] || "Unknown model";
-        const isOnline = device.isOnline === "0";
+            const wifiIcon = isOnline
+                ? `<i class="fa-solid fa-wifi text-success" data-bs-toggle="tooltip" data-bs-placement="top" title="Online"></i>`
+                : `<i class="fa-solid fa-wifi text-danger" data-bs-toggle="tooltip" data-bs-placement="top" title="Offline"></i>`;
 
-        const wifiIcon = isOnline
-            ? `<i class="fa-solid fa-wifi text-success" data-bs-toggle="tooltip" data-bs-placement="top" title="Online"></i>`
-            : `<i class="fa-solid fa-wifi text-danger" data-bs-toggle="tooltip" data-bs-placement="top" title="Offline"></i>`;
+            const card = document.createElement("div");
+            card.className = "col-md-4 col-lg-3";
 
-        const card = document.createElement("div");
-        card.className = "col-md-4 col-lg-3";
-
-        card.innerHTML = `
-            <div class="card device-card shadow-sm h-100"
-                 data-id="${device.uid}">
-                 
-                <div class="card-body d-flex flex-column">
-
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="device-model fw-bold">Model ${modelName}</span>
-                        ${wifiIcon}
+            card.innerHTML = `
+                <div role="button" class="card device-card shadow-sm h-100" data-bs-toggle="modal" data-bs-target="#radarModal" data-id="${device.uid}">
+                     
+                    <div class="card-body d-flex flex-column">
+    
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="device-model fw-bold">Modelo ${modelName}</span>
+                            ${wifiIcon}
+                        </div>
+    
+                        <h5 class="device-name mb-1">
+                            ${device.eqt_name || "Unnamed Device"}
+                        </h5>
+    
+                        <small class="text-muted">
+                            UID: ${device.uid}
+                        </small>
+    
                     </div>
-
-                    <h5 class="device-name mb-1">
-                        ${device.eqt_name || "Unnamed Device"}
-                    </h5>
-
-                    <small class="text-muted">
-                        UID: ${device.uid}
-                    </small>
-
                 </div>
-            </div>
-        `;
+            `;
 
-        radarsWrapper.appendChild(card);
-    });
+            radarsWrapper.appendChild(card);
+        });
+
+        initTooltips();
+    } catch (error) {
+        console.error("Error rendering devices:", error);
+    } finally {
+        removeLoading(radarsWrapper);
+    }
 };
 
 const init = async () => {
-    let tooltips = document.querySelectorAll("[data-bs-toggle='tooltip']");
-    tooltips.forEach((el) => {
-        new bootstrap.Tooltip(el);
-    });
     await renderDevicesList();
+    initTooltips();
 };
 
 init();
