@@ -1,8 +1,38 @@
 <?php
-error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
-ini_set('display_errors', 0);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
-// ---- CORS & JSON headers ----
+/* ---------------- CONSOLE LOGGER ---------------- */
+
+function console_log($msg)
+{
+    file_put_contents('php://stderr', "[PROXY] " . $msg . PHP_EOL);
+}
+
+/* ---------------- ENV LOADER ---------------- */
+
+function loadEnv($path)
+{
+    if (!file_exists($path)) return;
+
+    foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        if (str_starts_with(trim($line), '#')) continue;
+
+        [$name, $value] = explode('=', $line, 2);
+        $name = trim($name);
+        $value = trim($value);
+
+        $_ENV[$name] = $value;
+        putenv("$name=$value");
+    }
+}
+
+loadEnv(__DIR__ . '/.env');
+
+
+/* ---------------- HEADERS ---------------- */
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
@@ -13,157 +43,203 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
-// ---- Hobacare account info ----
-define('APP_ID', 'ql692202504222240166abe');
-define('APP_SECRET', '1b6fc3d804ce06b087660d282c313ac4fed200c2');
-define('USERNAME', 'test9');
-define('PASSWORD', 'test2024');
-define('LOGIN_URL', 'https://qinglanst.com/prod-api/login');
 
-define('CREDENTIALS_FILE', __DIR__ . '/credentials.json');
-define('CREDENTIALS_TTL', 3600); // 1 hour
+/* ---------------- CONFIG ---------------- */
 
-// ---- Login and cache credentials ----
-function login() {
-    $data = [
-        'username' => USERNAME,
-        'password' => PASSWORD,
-        'pattern'  => 'monitor',
-        'grantType'=> 'password'
-    ];
+$config = [
+    'app_id' => getenv('APP_ID'),
+    'app_secret' => getenv('SECRET'),
+    'username' => getenv('HOBACARE_USERNAME'),
+    'password' => getenv('HOBACARE_PASSWORD'),
+    'login_url' => getenv('LOGIN_URL'),
+    'api_base' => getenv('BASE_URL'),
+    'credentials_file' => __DIR__ . '/credentials.json',
+    'credentials_ttl' => 3600
+];
 
-    $ch = curl_init(LOGIN_URL);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+/* ---------------- UTIL ---------------- */
+
+function jsonError($msg, $code = 500)
+{
+    console_log("ERROR: $msg");
+    http_response_code($code);
+    echo json_encode(['error' => $msg]);
+    exit();
+}
+
+function httpRequest($url, $headers = [], $post = null)
+{
+    console_log("HTTP REQUEST -> $url");
+
+    if ($post) {
+        console_log("POST BODY -> " . json_encode($post));
+    }
+
+    $ch = curl_init($url);
+
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_CUSTOMREQUEST => $post ? 'POST' : 'GET',
+        CURLOPT_POSTFIELDS => $post ? json_encode($post) : null
+    ]);
 
     $response = curl_exec($ch);
-    if(curl_errno($ch)) {
-        http_response_code(500);
-        echo json_encode(['error' => curl_error($ch)]);
-        exit();
+
+    if (curl_errno($ch)) {
+        jsonError(curl_error($ch));
     }
 
-    $respJson = json_decode($response, true);
-    if (!isset($respJson['data']['access_token'])) {
-        http_response_code(500);
-        echo json_encode(['error' => 'Login failed', 'response' => $respJson]);
-        exit();
-    }
+    console_log("API RESPONSE -> " . $response);
 
-    $credentials = [
-        'appId' => APP_ID,
-        'appSecret' => APP_SECRET,
-        'access_token' => $respJson['data']['access_token'],
+    return $response;
+}
+
+
+/* ---------------- AUTH ---------------- */
+
+function login($config)
+{
+    console_log("Performing login...");
+
+    $payload = [
+        'username' => $config['username'],
+        'password' => $config['password'],
+        'pattern' => 'monitor',
+        'grantType' => 'password'
     ];
 
-    file_put_contents(CREDENTIALS_FILE, json_encode([
-        'credentials' => $credentials,
-        'timestamp' => time()
-    ]));
+    $response = httpRequest(
+        $config['login_url'],
+        ['Content-Type: application/json'],
+        $payload
+    );
+
+    $json = json_decode($response, true);
+
+    if (!isset($json['data']['access_token'])) {
+        jsonError('Login failed');
+    }
+
+    console_log("Login successful");
+
+    $credentials = [
+        'appId' => $config['app_id'],
+        'appSecret' => $config['app_secret'],
+        'access_token' => $json['data']['access_token']
+    ];
+
+    file_put_contents(
+        $config['credentials_file'],
+        json_encode([
+            'credentials' => $credentials,
+            'timestamp' => time()
+        ])
+    );
 
     return $credentials;
 }
 
-// ---- Get cached credentials or login ----
-function getCredentials() {
-    if (file_exists(CREDENTIALS_FILE)) {
-        $cache = json_decode(file_get_contents(CREDENTIALS_FILE), true);
-        if (time() - $cache['timestamp'] < CREDENTIALS_TTL) {
+function getCredentials($config)
+{
+    if (file_exists($config['credentials_file'])) {
+
+        $cache = json_decode(
+            file_get_contents($config['credentials_file']),
+            true
+        );
+
+        if ($cache && time() - $cache['timestamp'] < $config['credentials_ttl']) {
+            console_log("Using cached credentials");
             return $cache['credentials'];
         }
     }
-    return login();
+
+    return login($config);
 }
 
-// ---- Flatten data for signature ----
-function flattenObject($data) {
+
+/* ---------------- SIGNATURE ---------------- */
+
+function flattenParams($data)
+{
     $pairs = [];
+
     foreach ($data as $key => $value) {
+
         if (is_array($value)) {
-            $pairs[] = $key . "=" . implode("=", $value);
-        } else if (is_object($value)) {
-            $nested = flattenObject((array)$value);
-            foreach ($nested as $v) {
-                $pairs[] = $key . "=" . $v;
+            $pairs[] = $key . '=' . implode('=', $value);
+        } elseif (is_object($value)) {
+            foreach (flattenParams((array)$value) as $v) {
+                $pairs[] = $key . '=' . $v;
             }
         } else {
-            $pairs[] = $key . "=" . $value;
+            $pairs[] = "$key=$value";
         }
     }
+
     return $pairs;
 }
 
-function generateAuthHeaders($credentials, $data = []) {
+function generateHeaders($credentials, $params)
+{
     $timestamp = time();
-    $serialized = "";
+    $serialized = '';
 
-    if (count($data) > 0) {
-        $flattened = flattenObject($data);
-        sort($flattened);
-        $serialized = implode("#", $flattened) . "#";
+    if ($params) {
+        $flat = flattenParams($params);
+        sort($flat);
+        $serialized = implode('#', $flat) . '#';
     }
 
-    $signatureString = $credentials['appSecret'] . "#" . $timestamp . "#" . $serialized;
-    $signature = strtoupper(sha1($signatureString));
+    $signature = strtoupper(
+        sha1($credentials['appSecret'] . "#$timestamp#$serialized")
+    );
+
+    console_log("Generated signature: $signature");
 
     return [
-        'appid' => $credentials['appId'],
-        'timestamp' => $timestamp,
-        'signature' => $signature
+        "appid: {$credentials['appId']}",
+        "timestamp: $timestamp",
+        "signature: $signature",
+        "Authorization: Bearer {$credentials['access_token']}",
+        "Content-Type: application/json"
     ];
 }
 
-// ---- Proxy request ----
-$credentials = getCredentials();
 
-// Read endpoint and params
+/* ---------------- PROXY ---------------- */
+
 $endpoint = $_GET['endpoint'] ?? null;
+
 if (!$endpoint) {
-    echo json_encode(['error' => 'Missing endpoint']);
-    exit();
+    jsonError('Missing endpoint', 400);
 }
+
+console_log("Endpoint called: $endpoint");
 
 $params = $_GET;
-unset($params['endpoint']); // remove endpoint key
+unset($params['endpoint']);
 
-$authHeaders = generateAuthHeaders($credentials, $params);
+console_log("Params: " . json_encode($params));
 
-// Build Hobacare URL
-$url = "https://qinglanst.com/prod-api/thirdparty/v2/$endpoint";
-if (!empty($params)) {
-    $url .= "?" . http_build_query($params);
+$credentials = getCredentials($config);
+
+$url = $config['api_base'] . $endpoint;
+
+if ($params) {
+    $url .= '?' . http_build_query($params);
 }
 
-// Execute cURL request
-$ch = curl_init($url);
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+console_log("Final URL: $url");
 
-// Set headers including Authorization
-$headers = [];
-foreach ($authHeaders as $k => $v) {
-    $headers[] = "$k: $v";
-}
-$headers[] = "Content-Type: application/json";
-$headers[] = "Authorization: Bearer " . $credentials['access_token'];
+$headers = generateHeaders($credentials, $params);
 
-curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+$response = httpRequest($url, $headers);
 
-$response = curl_exec($ch);
-if (curl_errno($ch)) {
-    http_response_code(500);
-    echo json_encode(['error' => curl_error($ch)]);
-    exit();
-}
-
-// Decode response and wrap in standard structure
 $decoded = json_decode($response, true);
-if ($decoded === null) {
-    echo json_encode(['data' => [], 'raw' => $response]);
-    exit();
-}
 
 echo json_encode([
-    'data' => $decoded['data'] ?? $decoded
+    'data' => $decoded['data'] ?? $decoded ?? $response
 ]);
+

@@ -1,4 +1,4 @@
-export const BASE_URL = "http://127.0.0.1:8000/proxy.php";
+export const BASE_URL = "http://localhost:8000/proxy.php";
 
 export const sendRequest = async (endpoint, params = {}) => {
     const url = new URL(BASE_URL);
