@@ -152,7 +152,21 @@ const renderLiveMap = (data) => {
             ];
 
             const color = typeToColor[type] || typeToColor.default;
-            const labelText = typeToLabel[type] || `Area ${coordKey}`;
+
+            let labelText = typeToLabel[type] || `Area ${coordKey}`;
+
+            if (data.declare_area_name && data.declare_area_name[coordKey]) {
+                const raw = data.declare_area_name[coordKey];
+
+                // format is "type_name"
+                const parts = raw.split("_");
+
+                if (parts.length > 1) {
+                    labelText = parts.slice(1).join("_");
+                } else {
+                    labelText = raw;
+                }
+            }
 
             const points = transformCoords(coords);
 
