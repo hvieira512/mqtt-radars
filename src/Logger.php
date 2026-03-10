@@ -33,7 +33,19 @@ class Logger
                 echo "z={$p['z_position_cm']} cm, ";
                 echo "Posture={$p['posture_state']}, ";
                 echo "Event={$p['last_event']}, ";
-                echo "Region={$p['region_id']}\n";
+                echo "Region={$p['region_id']}";
+
+                if (isset($p['rotation_deg'])) {
+                    echo ", Rotation={$p['rotation_deg']}°";
+                }
+
+                if (isset($p['direction'])) {
+                    $dx = $p['direction']['dx'] ?? 0;
+                    $dy = $p['direction']['dy'] ?? 0;
+                    echo sprintf(", Direction=(%.2f, %.2f)", $dx, $dy);
+                }
+
+                echo "\n";
             }
         } else {
             foreach ($data as $k => $v) {

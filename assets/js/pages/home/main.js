@@ -122,3 +122,9 @@ const renderDevicesList = async () => {
 };
 
 await renderDevicesList();
+
+const ws = new WebSocket('ws://localhost:8080');
+
+ws.onopen = () => console.log('Connected to PHP WebSocket server');
+ws.onmessage = (msg) => console.log('Message:', msg.data);
+ws.onerror = (err) => console.error('WebSocket error', err);

@@ -42,6 +42,9 @@ class PositionParser implements ParserInterface
             $x = $bytes[1] > 127 ? $bytes[1] - 256 : $bytes[1];
             $y = $bytes[2] > 127 ? $bytes[2] - 256 : $bytes[2];
 
+            $rotationDeg = $bytes[4] ?? 0; // Example: byte 4 holds rotation in degrees (0-255)
+            $angleRad = deg2rad($rotationDeg);
+
             $people[] = [
                 "person_index"  => $bytes[0],
                 "x_position_dm" => $x,
@@ -50,7 +53,13 @@ class PositionParser implements ParserInterface
                 "time_left_s"   => $bytes[12],
                 "posture_state" => $postures[$bytes[13]] ?? "Unknown",
                 "last_event"    => $events[$bytes[14]] ?? "Unknown",
-                "region_id"     => $bytes[15]
+                "region_id"     => $bytes[15],
+                // Precompute direction vector for frontend
+                "rotation_deg"  => $rotationDeg,
+                "direction"     => [
+                    'dx' => cos($angleRad),
+                    'dy' => sin($angleRad)
+                ]
             ];
         }
 
