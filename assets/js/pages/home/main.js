@@ -67,6 +67,19 @@ const renderDevicesList = async () => {
         const devices = await fetchDevices();
         radarsWrapper.innerHTML = "";
 
+
+        devices.sort((a, b) => {
+            const aOnline = a.isOnline === "0";
+            const bOnline = b.isOnline === "0";
+
+            if (aOnline !== bOnline) return bOnline - aOnline;
+
+            const nameA = (a.eqt_name || "").toLowerCase();
+            const nameB = (b.eqt_name || "").toLowerCase();
+
+            return nameA.localeCompare(nameB);
+        });
+
         devices.forEach((device) => {
             const modelName = MODEL_MAP[device.modelNumber] || "Unknown model";
             const isOnline = device.isOnline === "0";
@@ -79,22 +92,22 @@ const renderDevicesList = async () => {
             card.className = "col-md-4 col-lg-3";
 
             card.innerHTML = `
-                <div role="button" class="card device-card shadow-sm h-100" 
-                     data-bs-toggle="modal" data-bs-target="#radarModal" data-id="${device.uid}">
-                     
-                    <div class="card-body d-flex flex-column">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="device-model fw-bold">Modelo ${modelName}</span>
-                            ${wifiIcon}
-                        </div>
-                        <h5 class="device-name mb-1">
-                            ${device.eqt_name || "Unnamed Device"}
-                        </h5>
-                        <small class="text-muted">
-                            UID: ${device.uid}
-                        </small>
+            <div role="button" class="card device-card shadow-sm h-100" 
+                data-bs-toggle="modal" data-bs-target="#radarModal" data-id="${device.uid}">
+
+                <div class="card-body d-flex flex-column">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="device-model fw-bold">Modelo ${modelName}</span>
+                        ${wifiIcon}
                     </div>
+                    <h5 class="device-name mb-1">
+                        ${device.eqt_name || "Unnamed Device"}
+                    </h5>
+                    <small class="text-muted">
+                        UID: ${device.uid}
+                    </small>
                 </div>
+            </div>
             `;
 
             radarsWrapper.appendChild(card);

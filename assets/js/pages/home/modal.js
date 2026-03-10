@@ -10,10 +10,36 @@ let currUID = null;
 let stage = null;
 let layer = null;
 
-// Helper: compute bounding box of coordinates
+/* ------------------------------------------------ */
+/* CONFIG */
+/* ------------------------------------------------ */
+
+const AREA_LABELS = {
+    0: "Inválido",
+    1: "Customizado",
+    2: "Cama",
+    3: "Interferência",
+    4: "Porta",
+    5: "Cama de Monitorização",
+    6: "Área de alarme",
+};
+
+const AREA_COLORS = {
+    4: "#ffa500",
+    5: "#32cd32",
+    6: "#ff4500",
+    3: "#808080",
+    default: "#a9a9a9",
+};
+
+/* ------------------------------------------------ */
+/* UTILS */
+/* ------------------------------------------------ */
+
 const getBounds = (coords) => {
     const xs = coords.filter((_, i) => i % 2 === 0);
     const ys = coords.filter((_, i) => i % 2 === 1);
+
     return {
         minX: Math.min(...xs),
         maxX: Math.max(...xs),
@@ -24,15 +50,59 @@ const getBounds = (coords) => {
     };
 };
 
-const renderLiveMap = (data) => {
-    if (!container) return console.error("Radar container not found!");
-    container.innerHTML = "";
+const parseRectangle = (rectangle) =>
+    rectangle
+        .replace(/[{}]/g, "")
+        .split(";")
+        .map((p) => p.trim().split(",").map(Number))
+        .flat();
 
-    if (stage) {
-        stage.destroy();
-        stage = null;
-        layer = null;
+const reorderRect = (coords) => [
+    coords[0], coords[1],
+    coords[2], coords[3],
+    coords[6], coords[7],
+    coords[4], coords[5],
+];
+
+const parseAreas = (data) => {
+    if (!data.declare_area) return [];
+
+    return data.declare_area
+        .split("},")
+        .map((a) => a.replace(/[{}]/g, "").trim())
+        .filter(Boolean)
+        .map((area) => {
+            const vals = area.split(",").map(Number);
+            const key = vals[0];
+            const type = vals[1];
+
+            const coords = [];
+            for (let i = 2; i < vals.length; i += 2) {
+                coords.push(vals[i], vals[i + 1]);
+            }
+
+            return { key, type, coords };
+        });
+};
+
+const getAreaName = (data, key, type) => {
+    let label = AREA_LABELS[type] || `Area ${key}`;
+
+    if (data.declare_area_name?.[key]) {
+        const raw = data.declare_area_name[key];
+        const parts = raw.split("_");
+        label = parts.length > 1 ? parts.slice(1).join("_") : raw;
     }
+
+    return label;
+};
+
+/* ------------------------------------------------ */
+/* MAP RENDER */
+/* ------------------------------------------------ */
+
+const createStage = () => {
+    if (stage) stage.destroy();
 
     if (container.offsetHeight === 0) container.style.height = "400px";
 
@@ -44,185 +114,140 @@ const renderLiveMap = (data) => {
 
     layer = new Konva.Layer();
     stage.add(layer);
+};
 
-    const cw = container.offsetWidth;
-    const ch = container.offsetHeight;
-    const padding = 30; // slightly more padding for labels
+const createTransform = (bounds, cw, ch, padding = 30) => {
+    const scale = Math.min(
+        (cw - 2 * padding) / bounds.width,
+        (ch - 2 * padding) / bounds.height
+    );
 
-    // ────────────────────────────────────────────────
-    // 1. Parse & reorder room boundary
-    // ────────────────────────────────────────────────
-    if (!data.rectangle) return;
+    const scaledWidth = bounds.width * scale;
+    const scaledHeight = bounds.height * scale;
 
-    let rectCoords = data.rectangle
-        .replace(/[{}]/g, "")
-        .split(";")
-        .map((p) => p.trim().split(",").map(Number))
-        .flat();
-
-    // Reorder: lowLeft → lowRight → upRight → upLeft
-    rectCoords = [
-        rectCoords[0],
-        rectCoords[1],
-        rectCoords[2],
-        rectCoords[3],
-        rectCoords[6],
-        rectCoords[7],
-        rectCoords[4],
-        rectCoords[5],
-    ];
-
-    const bounds = getBounds(rectCoords);
-    const scaleX = (cw - 2 * padding) / bounds.width;
-    const scaleY = (ch - 2 * padding) / bounds.height;
-    const scale = Math.min(scaleX, scaleY);
+    const centerOffsetX = (cw - scaledWidth) / 2;
+    const centerOffsetY = (ch - scaledHeight) / 2;
 
     const offsetX = -bounds.minX;
     const offsetY = -bounds.minY;
 
-    const transformCoords = (coords) => {
-        const transformed = [];
-        for (let i = 0; i < coords.length; i += 2) {
-            const x = (coords[i] + offsetX) * scale + padding;
-            const y = ch - ((coords[i + 1] + offsetY) * scale + padding);
-            transformed.push(x, y);
-        }
-        return transformed;
-    };
+    return (coords) => {
+        const result = [];
 
-    // Room boundary (no fill, just outline)
+        for (let i = 0; i < coords.length; i += 2) {
+            const x =
+                (coords[i] + offsetX) * scale + centerOffsetX;
+
+            const y =
+                ch - ((coords[i + 1] + offsetY) * scale + centerOffsetY);
+
+            result.push(x, y);
+        }
+
+        return result;
+    };
+};
+
+/* ------------------------------------------------ */
+/* DRAW FUNCTIONS */
+/* ------------------------------------------------ */
+
+const drawRoom = (coords, transform) => {
     layer.add(
         new Konva.Line({
-            points: transformCoords(rectCoords),
+            points: transform(coords),
             stroke: "gray",
             strokeWidth: 3,
             closed: true,
-        }),
+        })
+    );
+};
+
+const drawArea = (area, data, transform) => {
+    const color = AREA_COLORS[area.type] || AREA_COLORS.default;
+    const label = getAreaName(data, area.key, area.type);
+
+    const coords = reorderRect(area.coords);
+    const points = transform(coords);
+
+    layer.add(
+        new Konva.Line({
+            points,
+            stroke: color,
+            strokeWidth: 2.5,
+            closed: true,
+            fill: color + "33",
+        })
     );
 
-    // ────────────────────────────────────────────────
-    // 2. Parse & draw declared areas + labels
-    // ────────────────────────────────────────────────
-    const typeToLabel = {
-        0: "Inválido",
-        1: "Customizado",
-        2: "Cama",
-        3: "Interferência",
-        4: "Porta",
-        5: "Cama de Monitorizaçãi",
-        6: "Área de alarme",
-    };
+    const bounds = getBounds(coords);
+    const cx = (bounds.minX + bounds.maxX) / 2;
+    const cy = (bounds.minY + bounds.maxY) / 2;
 
-    const typeToColor = {
-        4: "#ffa500", // orange - door
-        5: "#32cd32", // lime green - monitoring bed
-        6: "#ff4500", // orange-red - warning
-        3: "#808080", // gray - interference
-        default: "#a9a9a9", // dark gray for others
-    };
+    const [x, y] = transform([cx, cy]);
 
-    if (data.declare_area) {
-        const areas = data.declare_area
-            .split("},")
-            .map((a) => a.replace(/[{}]/g, "").trim())
-            .filter((a) => a);
+    layer.add(
+        new Konva.Text({
+            x: x - 60,
+            y: y - 10,
+            width: 120,
+            align: "center",
+            text: label,
+            fontSize: 14,
+            fontFamily: "Poppins",
+            fill: color,
+            shadowColor: "white",
+            shadowBlur: 5,
+        })
+    );
+};
 
-        areas.forEach((areaStr) => {
-            const vals = areaStr.split(",").map(Number);
-            if (vals.length < 10) return;
+const drawRadar = (transform) => {
+    const [x, y] = transform([0, 0]);
 
-            const coordKey = vals[0];
-            const type = vals[1];
-
-            let coords = [];
-            for (let i = 2; i < vals.length; i += 2) {
-                coords.push(vals[i], vals[i + 1]);
-            }
-
-            // Reorder to perimeter order
-            coords = [
-                coords[0],
-                coords[1], // lowLeft
-                coords[2],
-                coords[3], // lowRight
-                coords[6],
-                coords[7], // upRight
-                coords[4],
-                coords[5], // upLeft
-            ];
-
-            const color = typeToColor[type] || typeToColor.default;
-
-            let labelText = typeToLabel[type] || `Area ${coordKey}`;
-
-            if (data.declare_area_name && data.declare_area_name[coordKey]) {
-                const raw = data.declare_area_name[coordKey];
-
-                // format is "type_name"
-                const parts = raw.split("_");
-
-                if (parts.length > 1) {
-                    labelText = parts.slice(1).join("_");
-                } else {
-                    labelText = raw;
-                }
-            }
-
-            const points = transformCoords(coords);
-
-            // Draw area outline + semi-transparent fill
-            layer.add(
-                new Konva.Line({
-                    points,
-                    stroke: color,
-                    strokeWidth: 2.5,
-                    closed: true,
-                    fill: color + "33", // hex + alpha (33 ≈ 20%)
-                }),
-            );
-
-            // Calculate approximate center for label
-            const areaBounds = getBounds(coords);
-            const centerX = (areaBounds.minX + areaBounds.maxX) / 2;
-            const centerY = (areaBounds.minY + areaBounds.maxY) / 2;
-            const [labelX, labelY] = transformCoords([centerX, centerY]);
-
-            // Add label
-            layer.add(
-                new Konva.Text({
-                    x: labelX - 60,
-                    y: labelY - 10,
-                    text: labelText,
-                    fontSize: 14,
-                    fontFamily: "Poppins",
-                    fill: color,
-                    shadowColor: "white",
-                    shadowBlur: 5,
-                    shadowOffsetX: 1,
-                    shadowOffsetY: 1,
-                    shadowOpacity: 0.7,
-                    align: "center",
-                    width: 120, // helps with centering
-                }),
-            );
-        });
-    }
-
-    // Radar position marker
-    const radarPos = transformCoords([0, 0]);
     layer.add(
         new Konva.Circle({
-            x: radarPos[0],
-            y: radarPos[1],
+            x,
+            y,
             radius: 6,
             fill: "red",
             stroke: "white",
             strokeWidth: 2,
-        }),
+        })
     );
+};
+
+/* ------------------------------------------------ */
+/* MAIN MAP */
+/* ------------------------------------------------ */
+
+const renderLiveMap = (data) => {
+    if (!container) return;
+
+    container.innerHTML = "";
+    createStage();
+
+    const cw = container.offsetWidth;
+    const ch = container.offsetHeight;
+
+    const rect = reorderRect(parseRectangle(data.rectangle));
+    const bounds = getBounds(rect);
+
+    const transform = createTransform(bounds, cw, ch);
+
+    drawRoom(rect, transform);
+
+    const areas = parseAreas(data);
+    areas.forEach((area) => drawArea(area, data, transform));
+
+    drawRadar(transform);
 
     layer.draw();
 };
+
+/* ------------------------------------------------ */
+/* More Informations */
+/* ------------------------------------------------ */
 
 const renderInfo = (data) => {
     if (!infoTab) return;
@@ -439,6 +464,10 @@ const renderInfo = (data) => {
     infoTab.innerHTML = html;
 };
 
+/* ------------------------------------------------ */
+/* MODAL EVENTS */
+/* ------------------------------------------------ */
+
 modal.addEventListener("shown.bs.modal", async (e) => {
     currUID = e.relatedTarget.dataset.id;
     if (!currUID) return;
@@ -447,15 +476,18 @@ modal.addEventListener("shown.bs.modal", async (e) => {
 
     try {
         renderLoading(container);
-        const response = await sendRequest("deviceProp", { uid: currUID });
-        if (!response || !response.data)
-            return console.warn("No data for UID", currUID);
+
+        const res = await sendRequest("deviceProp", { uid: currUID });
+
+        if (!res?.data) return;
 
         modalTitle.innerHTML = `Detalhes do Radar - ${currUID}`;
-        renderLiveMap(response.data);
-        renderInfo(response.data);
+
+        renderLiveMap(res.data);
+        renderInfo(res.data);
+
     } catch (err) {
-        console.error("Error fetching device properties:", err);
+        console.error(err);
     } finally {
         removeLoading(container);
     }
@@ -464,10 +496,15 @@ modal.addEventListener("shown.bs.modal", async (e) => {
 modal.addEventListener("hidden.bs.modal", () => {
     currUID = null;
     delete modal.dataset.id;
+
     modalTitle.innerHTML = "Detalhes do Radar";
     infoTab.innerHTML = "";
-    if (!stage) return;
-    stage.destroy();
-    stage = null;
-    layer = null;
+
+    if (stage) stage.destroy();
+});
+
+window.addEventListener("resize", () => {
+    if (!stage || !currUID) return;
+    stage.width(container.offsetWidth);
+    stage.height(container.offsetHeight);
 });
