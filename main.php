@@ -14,7 +14,9 @@ use App\Parsers\HbStaticsParser;
 $repo = new RadarRepository();
 
 $server   = $_ENV['MQTT_SERVER'];
-$port     = (int) $_ENV['MQTT_PORT'];
+$port = isset($_ENV['MQTT_PORT']) && $_ENV['MQTT_PORT'] !== ''
+    ? (int) $_ENV['MQTT_PORT']
+    : 1883;
 $username = $_ENV['MQTT_USERNAME'];
 $password = $_ENV['MQTT_PASSWORD'];
 $topic    = $_ENV['MQTT_TOPIC'];
