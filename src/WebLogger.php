@@ -2,62 +2,28 @@
 
 namespace App;
 
-use WebSocket\Client;
+use Ratchet\ConnectionInterface;
 
 class WebLogger
 {
-    private static ?Client $wsClient = null;
-    private static bool $echoLocal = false;
+    private static array $clients = [];
 
-    public static function initWebSocket(Client $client, bool $echoLocal = false): void
+    public static function registerClient(ConnectionInterface $conn): void
     {
-        self::$wsClient = $client;
-        self::$echoLocal = $echoLocal;
+        self::$clients[$conn->resourceId] = $conn;
     }
 
-    public static function send(array $data): void
+    public static function removeClient(ConnectionInterface $conn): void
     {
-        $timestamp = date('H:i:s');
+        unset(self::$clients[$conn->resourceId]);
+    }
 
-        $people = $data['people'] ?? [];
+    public static function broadcast(array $data): void
+    {
+        $json = json_encode($data, JSON_UNESCAPED_UNICODE);
 
-        // Enhance position type with rotation/direction for frontend
-        if (($data['type'] ?? '') === 'position') {
-            foreach ($people as &$p) {
-                if (!isset($p['rotation_deg']) && isset($p['direction'])) {
-                    $p['rotation_deg'] = rad2deg(atan2($p['direction']['dy'], $p['direction']['dx']));
-                } elseif (!isset($p['direction']) && isset($p['rotation_deg'])) {
-                    $angleRad = deg2rad($p['rotation_deg']);
-                    $p['direction'] = ['dx' => cos($angleRad), 'dy' => sin($angleRad)];
-                } elseif (!isset($p['rotation_deg']) && !isset($p['direction'])) {
-                    $p['rotation_deg'] = 0;
-                    $p['direction'] = ['dx' => 0, 'dy' => 1];
-                }
-            }
-            unset($p);
-        }
-
-        $payload = [
-            'timestamp' => $timestamp,
-            'type'      => $data['type'] ?? 'unknown',
-            'device'    => $data['device_code'] ?? null,
-            'people'    => $people,
-            'extra'     => array_diff_key($data, array_flip(['type', 'device_code', 'people']))
-        ];
-
-        $json = json_encode($payload, JSON_UNESCAPED_UNICODE);
-
-        if (self::$echoLocal) {
-            echo $json . "\n";
-        }
-
-        // Send to WebSocket server
-        if (self::$wsClient) {
-            try {
-                self::$wsClient->send($json);
-            } catch (\Exception $e) {
-                echo "[WebSocket Error] " . $e->getMessage() . "\n";
-            }
+        foreach (self::$clients as $conn) {
+            $conn->send($json);
         }
     }
 }
