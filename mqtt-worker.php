@@ -28,7 +28,7 @@ $mqtt = new MqttClient($server, (int)$port, 'php-radar-worker');
 
 $mqtt->connect($settings, true);
 
-echo "MQTT connected\n";
+Logger::info("MQTT connected");
 
 $parsers = [
     'position' => new PositionParser(),
@@ -72,6 +72,16 @@ $mqtt->subscribe($topic, function ($topic, $message) use ($parsers, $repo) {
                 $repo->insertVitals($eventId, $parsed);
                 $broadcast['vitals'] = $parsed;
                 break;
+
+            case 'minute_stats':
+                $repo->insertMinuteStats($eventId, $parsed);
+                $broadcast['minute_stats'] = $parsed;
+                break;
+
+            case 'hbstatics':
+                $repo->insertHbStatics($eventId, $parsed);
+                $broadcast['hbstatics'] = $parsed;
+                break;
         }
     }
 
@@ -87,7 +97,6 @@ $mqtt->subscribe($topic, function ($topic, $message) use ($parsers, $repo) {
         ]);
 
         curl_exec($ch);
-        curl_close($ch);
     }
 }, 0);
 
