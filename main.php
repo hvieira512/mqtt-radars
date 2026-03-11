@@ -1,138 +1,93 @@
 <?php
-
-error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+error_reporting(E_ALL);
 
 require __DIR__ . '/vendor/autoload.php';
-require __DIR__ . '/bootstrap.php';
 
-use PhpMqtt\Client\MqttClient;
-use PhpMqtt\Client\ConnectionSettings;
-use App\RadarRepository;
-use App\Logger;
-use App\Parsers\PositionParser;
-use App\Parsers\PosStaticsParser;
-use App\Parsers\HeartBreathParser;
-use App\Parsers\HbStaticsParser;
-use App\WebLogger;
 use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
 use Ratchet\Http\HttpServer;
 use Ratchet\Server\IoServer;
 use Ratchet\WebSocket\WsServer;
+use React\EventLoop\Factory as LoopFactory;
+use React\Socket\Server as Reactor;
 
 class RadarWebSocket implements MessageComponentInterface
 {
+    private \SplObjectStorage $clients;
+
+    public function __construct()
+    {
+        $this->clients = new \SplObjectStorage();
+    }
+
     public function onOpen(ConnectionInterface $conn)
     {
-        echo "[" . date('H:i:s') . "] New WebSocket client connected: {$conn->resourceId}\n";
-        WebLogger::registerClient($conn);
+        $this->clients->attach($conn);
+        echo "[" . date('H:i:s') . "] Client connected: {$conn->resourceId} (total: {$this->clients->count()})\n";
+
+        // Send welcome message
+        $conn->send(json_encode(['msg' => 'Welcome!']));
     }
 
     public function onMessage(ConnectionInterface $from, $msg) {}
+
     public function onClose(ConnectionInterface $conn)
     {
-        WebLogger::removeClient($conn);
+        $this->clients->detach($conn);
+        echo "[" . date('H:i:s') . "] Client disconnected: {$conn->resourceId} (total: {$this->clients->count()})\n";
     }
+
     public function onError(ConnectionInterface $conn, \Exception $e)
     {
-        WebLogger::removeClient($conn);
+        echo "[" . date('H:i:s') . "] WebSocket error: {$e->getMessage()}\n";
+        $this->clients->detach($conn);
         $conn->close();
     }
-}
 
-$repo = new RadarRepository();
+    public function broadcast(array $data): void
+    {
+        if ($this->clients->count() === 0) {
+            echo "[" . date('H:i:s') . "] Broadcasting to 0 clients\n";
+            return;
+        }
 
-$server   = $_ENV['MQTT_SERVER'];
-$port     = isset($_ENV['MQTT_PORT']) && $_ENV['MQTT_PORT'] !== '' ? (int) $_ENV['MQTT_PORT'] : 1883;
-$username = $_ENV['MQTT_USERNAME'];
-$password = $_ENV['MQTT_PASSWORD'];
-$topic    = $_ENV['MQTT_TOPIC'] ?? 'radar/frontend';
+        $json = json_encode($data, JSON_UNESCAPED_UNICODE);
+        echo "[" . date('H:i:s') . "] Broadcasting to {$this->clients->count()} clients\n";
 
-$connectionSettings = (new ConnectionSettings())
-    ->setUsername($username)
-    ->setPassword($password)
-    ->setKeepAliveInterval(60);
-
-$mqtt = new MqttClient($server, $port, 'php-radar-client');
-$mqtt->connect($connectionSettings, true);
-Logger::info("[" . date('H:i:s') . "] MQTT client connected");
-
-// Parsers
-$parsers = [
-    'position'     => new PositionParser(),
-    'posstatics'   => new PosStaticsParser(),
-    'heartbreath'  => new HeartBreathParser(),
-    'hbstatics'    => new HbStaticsParser(),
-];
-
-// Subscribe to MQTT topic
-$mqtt->subscribe($topic, function ($_topic, $message) use ($parsers, $repo) {
-    $timestamp = date('H:i:s');
-    $data = json_decode($message, true);
-
-    if (!$data || !isset($data['payload'])) {
-        Logger::warn("[$timestamp] Invalid payload\n");
-        return;
-    }
-
-    $payload = $data['payload'];
-    $deviceCode = $payload['deviceCode'] ?? null;
-    $broadcastData = [];
-
-    foreach ($parsers as $key => $parser) {
-        if (!isset($payload[$key])) continue;
-
-        $parsed = $parser->parse($payload[$key], $deviceCode);
-        if (!$parsed) continue;
-
-        Logger::logData($parsed);
-
-        $deviceId = $repo->getDeviceId($deviceCode);
-        $eventId = $repo->createEvent($deviceId, $parsed['type']);
-
-        switch ($parsed['type']) {
-            case 'position':
-                $repo->insertPosition($eventId, $parsed['people']);
-                $broadcastData['position'] = $parsed['people'];
-                break;
-            case 'minute_stats':
-                $repo->insertMinuteStats($eventId, $parsed);
-                $broadcastData['minute_stats'] = $parsed;
-                break;
-            case 'vitals':
-                $repo->insertVitals($eventId, $parsed);
-                $broadcastData['vitals'] = $parsed;
-                break;
-            case 'hbstatics':
-                $repo->insertHbStatics($eventId, $parsed);
-                $broadcastData['hbstatics'] = $parsed;
-                break;
+        foreach ($this->clients as $conn) {
+            $conn->send($json);
         }
     }
 
-    // Broadcast parsed data to WebSocket clients
-    if (!empty($broadcastData)) {
-        WebLogger::broadcast($broadcastData);
+    public function getClientCount(): int
+    {
+        return $this->clients->count();
     }
-}, 0);
+}
 
-$wsServer = IoServer::factory(
+$loop = LoopFactory::create();
+$radarWs = new RadarWebSocket(); // single instance
+
+$webSock = new Reactor('0.0.0.0:8080', $loop);
+$wsServer = new IoServer(
     new HttpServer(
-        new WsServer(
-            new RadarWebSocket()
-        )
+        new WsServer($radarWs)
     ),
-    8080,
-    '0.0.0.0'
+    $webSock,
+    $loop
 );
 
-echo "[" . date('H:i:s') . "] WebSocket server started on port 8080\n";
+echo "[" . date('H:i:s') . "] WebSocket server started on ws://0.0.0.0:8080\n";
 
-$loop = $wsServer->loop;
-
-$loop->addPeriodicTimer(0.1, function () use ($mqtt) {
-    $mqtt->loop(true);
+$loop->addPeriodicTimer(2, function () use ($radarWs) {
+    echo "[" . date('H:i:s') . "] Connected WS clients: " . $radarWs->getClientCount() . "\n";
 });
 
-$wsServer->run();
+$loop->addPeriodicTimer(5, function () use ($radarWs) {
+    $radarWs->broadcast([
+        'test' => 'hello world',
+        'ts'   => date('H:i:s')
+    ]);
+});
 
+$loop->run();

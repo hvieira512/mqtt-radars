@@ -1,40 +1,47 @@
 const ws = new WebSocket('ws://localhost:8080');
 
-ws.onopen = () => console.log('%cConnected to PHP WebSocket server', 'color: green; font-weight: bold;');
+ws.onopen = () => console.log('✅ Connected to WebSocket server');
 
-ws.onmessage = (msg) => {
+ws.onmessage = (e) => {
+    let data;
     try {
-        const data = JSON.parse(msg.data);
-        const timestamp = new Date().toLocaleTimeString();
-        console.group(`%c[${timestamp}] Live MQTT Data`, 'color: blue; font-weight: bold;');
-
-        // Handle positions
-        if (data.position) {
-            data.position.forEach((p, i) => {
-                console.log(`%cPerson ${i}: x=${p.x_position_dm} dm, y=${p.y_position_dm} dm, z=${p.z_position_cm} cm, Posture=${p.posture_state}, Event=${p.last_event}, Region=${p.region_id}, Rotation=${p.rotation_deg ?? 'N/A'}, Direction=(${p.direction?.dx ?? 0}, ${p.direction?.dy ?? 0})`, 'color: purple;');
-            });
-        }
-
-        // Handle vitals
-        if (data.vitals) {
-            console.log(`%cVitals: Heart Rate=${data.vitals.heart_rate}, Breathing=${data.vitals.breathing}, Sleep State=${data.vitals.sleep_state}`, 'color: orange; font-weight: bold;');
-        }
-
-        // Handle minute_stats
-        if (data.minute_stats) {
-            console.log('%cMinute Stats:', 'color: teal; font-weight: bold;', data.minute_stats);
-        }
-
-        // Handle hbstatics
-        if (data.hbstatics) {
-            console.log('%cHB Statics:', 'color: brown; font-weight: bold;', data.hbstatics);
-        }
-
-        console.groupEnd();
+        data = JSON.parse(e.data);
     } catch (err) {
-        console.error('Failed to parse WebSocket message', err, msg.data);
+        console.error('❌ Failed to parse message', e.data);
+        return;
     }
+
+    const ts = new Date().toLocaleTimeString();
+    console.group(`[${ts}] Live Data`);
+
+    // Position updates
+    if (data.position) {
+        data.position.forEach((p, i) => {
+            console.log(
+                `Person ${i}: x=${p.x_position_dm} dm, y=${p.y_position_dm} dm, z=${p.z_position_cm} cm, Posture=${p.posture_state}`
+            );
+        });
+    }
+
+    // Vitals updates
+    if (data.vitals) {
+        console.log(
+            `Vitals: Heart=${data.vitals.heart_rate}, Breathing=${data.vitals.breathing}, Sleep=${data.vitals.sleep_state}`
+        );
+    }
+
+    // Any test or other messages
+    Object.keys(data).forEach((key) => {
+        if (!['position', 'vitals'].includes(key)) {
+            console.log(`${key}:`, data[key]);
+        }
+    });
+
+    console.groupEnd();
 };
 
-ws.onclose = () => console.warn('%cWebSocket connection closed', 'color: red; font-weight: bold;');
-ws.onerror = (err) => console.error('%cWebSocket error', 'color: red; font-weight: bold;', err);
+// Handle errors
+ws.onerror = (err) => console.error('❌ WebSocket error', err);
+
+// Handle connection closed
+ws.onclose = () => console.warn('⚠️ WebSocket connection closed');
