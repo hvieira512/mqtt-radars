@@ -2,19 +2,26 @@ export function renderRadarInfo(container, data) {
     if (!container) return;
     container.innerHTML = "";
 
-    const formatValue = val => val === undefined || val === null || val === "" ? "—" : val;
-    const getWorkingMode = mode => ({
-        15: "Monitorização de Cama",
-        11: "Respiração e Sono",
-        7: "Monitorização de Queda",
-        3: "Rastreamento de Pessoas",
-    }[mode] || `Desconhecido (${mode})`);
+    const formatValue = (val) =>
+        val === undefined || val === null || val === "" ? "—" : val;
+    const getWorkingMode = (mode) =>
+        ({
+            15: "Monitorização de Cama",
+            11: "Respiração e Sono",
+            7: "Monitorização de Queda",
+            3: "Rastreamento de Pessoas",
+        })[mode] || `Desconhecido (${mode})`;
 
-    const getSignalStrength = val => {
+    const getSignalStrength = (val) => {
         if (!val || val === "-") return "—";
         const num = Number(val);
         if (isNaN(num)) return val;
-        if (val.includes("CSQ")) return num >= 23 ? `${val} — Forte` : num >= 15 ? `${val} — Médio` : `${val} — Fraco`;
+        if (val.includes("CSQ"))
+            return num >= 23
+                ? `${val} — Forte`
+                : num >= 15
+                  ? `${val} — Médio`
+                  : `${val} — Fraco`;
         if (num <= -100) return `${val} — Sem Sinal`;
         if (num > -100 && num <= -88) return `${val} — Fraco`;
         if (num > -88 && num <= -66) return `${val} — OK`;
@@ -22,9 +29,9 @@ export function renderRadarInfo(container, data) {
         return `${val} — Forte`;
     };
 
-    const parsePostureParams = str => {
+    const parsePostureParams = (str) => {
         if (!str) return { fallTime: "—", bits: "—", sitTime: "—" };
-        const parts = str.split(",").map(s => s.trim());
+        const parts = str.split(",").map((s) => s.trim());
         if (parts.length < 3) return { fallTime: str, bits: "—", sitTime: "—" };
 
         let fallSec = Number(parts[0]) * 10;
@@ -42,14 +49,17 @@ export function renderRadarInfo(container, data) {
         return {
             fallTime: fallSec === 0 ? "Padrão (30s)" : `${fallSec} segundos`,
             bits: bitDesc.length ? bitDesc.join(", ") : "Nenhum ativo",
-            sitTime: sitSec === 0 ? "Padrão (30s)" : `${sitSec} segundos`
+            sitTime: sitSec === 0 ? "Padrão (30s)" : `${sitSec} segundos`,
         };
     };
 
     // Parse heart & breath param safely
-    const parseHeartBreath = str => {
+    const parseHeartBreath = (str) => {
         if (!str) return null;
-        const vals = str.replace(/[\[\]]/g, "").split(",").map(v => Number(v.trim()) & 0xff);
+        const vals = str
+            .replace(/[\[\]]/g, "")
+            .split(",")
+            .map((v) => Number(v.trim()) & 0xff);
         return vals.length >= 7 ? vals : null;
     };
 
@@ -148,7 +158,9 @@ export function renderRadarInfo(container, data) {
                             <!-- Heart & Breath -->
                             <div class="col-md-6">
                                 <h6 class="fw-bold mb-3">Faixa de Frequência Cardíaca e Respiratória</h6>
-                                ${hb ? `
+                                ${
+                                    hb
+                                        ? `
                                 <dl class="row small mb-0">
                                     <dt class="col-sm-6 text-muted">Respiração Superior</dt><dd class="col-sm-6">${hb[0]}</dd>
                                     <dt class="col-sm-6 text-muted">Frequência Cardíaca Superior</dt><dd class="col-sm-6">${hb[1]}</dd>
@@ -157,7 +169,9 @@ export function renderRadarInfo(container, data) {
                                     <dt class="col-sm-6 text-muted">Medição Contínua</dt><dd class="col-sm-6">${hb[4] ? "LIGADO" : "DESLIGADO"}</dd>
                                     <dt class="col-sm-6 text-muted">Tempo de Ativação Fraco</dt><dd class="col-sm-6">${hb[5]} min</dd>
                                     <dt class="col-sm-6 text-muted">Sensatividade</dt><dd class="col-sm-6">${hb[6]}</dd>
-                                </dl>` : "<p class='text-muted'>—</p>" }
+                                </dl>`
+                                        : "<p class='text-muted'>—</p>"
+                                }
                             </div>
 
                         </div>

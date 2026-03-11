@@ -3,7 +3,7 @@ import { updatePeople } from "./map.js";
 let ws = null;
 
 export function initRadarWebsocket() {
-    if(ws) return;
+    if (ws) return;
 
     ws = new WebSocket("ws://localhost:8080");
 
@@ -11,10 +11,13 @@ export function initRadarWebsocket() {
 
     ws.onmessage = (event) => {
         let msg;
-        try { msg = JSON.parse(event.data); } 
-        catch(err){ return; }
+        try {
+            msg = JSON.parse(event.data);
+        } catch (err) {
+            return;
+        }
 
-        if(msg.position && Array.isArray(msg.position)){
+        if (msg.position && Array.isArray(msg.position)) {
             updatePeople(msg.position);
         }
     };

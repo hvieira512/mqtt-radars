@@ -1,4 +1,11 @@
-import { AREA_COLORS, getBounds, reorderRect, parseRectangle, parseAreas, getAreaName } from "./utils.js";
+import {
+    AREA_COLORS,
+    getBounds,
+    reorderRect,
+    parseRectangle,
+    parseAreas,
+    getAreaName,
+} from "./utils.js";
 
 let stage = null;
 let layer = null;
@@ -30,7 +37,10 @@ export function initRadarMap(container) {
 // Coordinate transform
 // ──────────────────────────────
 function createTransform(bounds, cw, ch, padding = 30) {
-    const scale = Math.min((cw - 2 * padding) / bounds.width, (ch - 2 * padding) / bounds.height);
+    const scale = Math.min(
+        (cw - 2 * padding) / bounds.width,
+        (ch - 2 * padding) / bounds.height,
+    );
     const offsetX = -bounds.minX;
     const offsetY = -bounds.minY;
     const scaledWidth = bounds.width * scale;
@@ -61,49 +71,68 @@ export function renderRoom(rectangle, declare_area, data) {
     transformCoords = createTransform(bounds, cw, ch);
 
     // Room
-    layer.add(new Konva.Line({
-        points: transformCoords(rect),
-        stroke: "gray",
-        strokeWidth: 3,
-        closed: true,
-    }));
+    layer.add(
+        new Konva.Line({
+            points: transformCoords(rect),
+            stroke: "gray",
+            strokeWidth: 3,
+            closed: true,
+        }),
+    );
 
     // Areas
-    parseAreas(declare_area).forEach(area => {
+    parseAreas(declare_area).forEach((area) => {
         const color = AREA_COLORS[area.type] || AREA_COLORS.default;
         const coords = reorderRect(area.coords);
         const points = transformCoords(coords);
 
-        layer.add(new Konva.Line({
-            points,
-            stroke: color,
-            strokeWidth: 2.5,
-            fill: color + "33",
-            closed: true
-        }));
+        layer.add(
+            new Konva.Line({
+                points,
+                stroke: color,
+                strokeWidth: 2.5,
+                fill: color + "33",
+                closed: true,
+            }),
+        );
 
-        const [x, y] = transformCoords([(Math.min(...coords.filter((_, i) => i % 2 === 0)) + Math.max(...coords.filter((_, i) => i % 2 === 0))) / 2,
-                                        (Math.min(...coords.filter((_, i) => i % 2 === 1)) + Math.max(...coords.filter((_, i) => i % 2 === 1))) / 2]);
+        const [x, y] = transformCoords([
+            (Math.min(...coords.filter((_, i) => i % 2 === 0)) +
+                Math.max(...coords.filter((_, i) => i % 2 === 0))) /
+                2,
+            (Math.min(...coords.filter((_, i) => i % 2 === 1)) +
+                Math.max(...coords.filter((_, i) => i % 2 === 1))) /
+                2,
+        ]);
 
-        layer.add(new Konva.Text({
-            x: x - 60,
-            y: y - 10,
-            width: 120,
-            align: "center",
-            text: getAreaName(data, area.key, area.type),
-            fontSize: 14,
-            fontFamily: "Poppins",
-            fill: color,
-            shadowColor: "white",
-            shadowBlur: 5,
-        }));
+        layer.add(
+            new Konva.Text({
+                x: x - 60,
+                y: y - 10,
+                width: 120,
+                align: "center",
+                text: getAreaName(data, area.key, area.type),
+                fontSize: 14,
+                fontFamily: "Poppins",
+                fill: color,
+                shadowColor: "white",
+                shadowBlur: 5,
+            }),
+        );
     });
 
     // Radar center
     const [x, y] = transformCoords([0, 0]);
-    layer.add(new Konva.Circle({
-        x, y, radius: 6, fill: "red", stroke: "white", strokeWidth: 2
-    }));
+    layer.add(
+        new Konva.Circle({
+            x,
+            y,
+            radius: 6,
+            fill: "red",
+            stroke: "white",
+            strokeWidth: 2,
+        }),
+    );
 
     layer.draw();
 }
@@ -114,13 +143,26 @@ export function renderRoom(rectangle, declare_area, data) {
 export function updatePeople(people) {
     if (!peopleLayer || !transformCoords) return;
 
-    people.forEach(p => {
+    people.forEach((p) => {
         const [x, y] = transformCoords([p.x_position_dm, p.y_position_dm]);
         let node = peopleNodes.get(p.person_index);
 
         if (!node) {
-            const circle = new Konva.Circle({ x, y, radius: 8, fill: "#00bfff", stroke: "white", strokeWidth: 2 });
-            const label = new Konva.Text({ x: x + 10, y: y - 8, text: `P${p.person_index}`, fontSize: 12, fill: "white" });
+            const circle = new Konva.Circle({
+                x,
+                y,
+                radius: 8,
+                fill: "#00bfff",
+                stroke: "white",
+                strokeWidth: 2,
+            });
+            const label = new Konva.Text({
+                x: x + 10,
+                y: y - 8,
+                text: `P${p.person_index}`,
+                fontSize: 12,
+                fill: "white",
+            });
             const group = new Konva.Group();
             group.add(circle);
             group.add(label);
