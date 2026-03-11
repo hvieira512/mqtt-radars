@@ -1,7 +1,6 @@
 import { sendRequest } from "../../auth.js";
 import { initTooltips, removeLoading, renderLoading } from "../../utils.js";
-import "./modal.js";
-import "./test.js";
+import "./radar/modal.js";
 
 const MODEL_MAP = {
     1: "HC1",
@@ -68,7 +67,6 @@ const renderDevicesList = async () => {
         const devices = await fetchDevices();
         radarsWrapper.innerHTML = "";
 
-
         devices.sort((a, b) => {
             const aOnline = a.isOnline === "0";
             const bOnline = b.isOnline === "0";
@@ -123,4 +121,3 @@ const renderDevicesList = async () => {
 };
 
 await renderDevicesList();
-
