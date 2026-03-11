@@ -2,7 +2,7 @@ import { sendRequest } from "../../../auth.js";
 import { renderLoading, removeLoading } from "../../../utils.js";
 import { initRadarMap, renderRoom, destroyRadarMap } from "./map.js";
 import { renderRadarInfo } from "./info.js";
-import { initRadarWebsocket } from "./websocket.js";
+import { initRadarWebsocket, setCurrentUID } from "./websocket.js";
 
 const modal = document.getElementById("radarModal");
 const modalTitle = modal.querySelector(".modal-title");
@@ -16,9 +16,11 @@ modal.addEventListener("shown.bs.modal", async (e) => {
     if (!currUID) return;
 
     modal.dataset.id = currUID;
-    renderLoading(container);
+
+    setCurrentUID(currUID);
 
     try {
+        renderLoading(container);
         const res = await sendRequest("deviceProp", { uid: currUID });
         if (!res?.data) return;
 
@@ -33,15 +35,17 @@ modal.addEventListener("shown.bs.modal", async (e) => {
         removeLoading(container);
     }
 });
-
 modal.addEventListener("hidden.bs.modal", () => {
     currUID = null;
     modal.dataset.id = "";
     modalTitle.textContent = "Detalhes do Radar";
     infoTab.innerHTML = "";
     destroyRadarMap();
+    setCurrentUID(null);
 });
 
 window.addEventListener("resize", () => {
     if (!currUID) return;
 });
+
+initRadarWebsocket();

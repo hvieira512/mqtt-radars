@@ -183,3 +183,25 @@ export function renderRadarInfo(container, data) {
     </div>
     `;
 }
+
+export function renderVitals(uid, vitals) {
+    const container = document.getElementById("liveRadarInfo");
+    if (!container) return;
+    if (container.closest("#radarModal").dataset.id !== uid) return;
+
+    let hbContainer = container.querySelector(".hb-data");
+    if (!hbContainer) {
+        hbContainer = document.createElement("dl");
+        hbContainer.className = "hb-data row small mb-0";
+        container.appendChild(hbContainer);
+    }
+
+    hbContainer.innerHTML = `
+        <dt class="col-sm-6">Heart Rate</dt>
+        <dd class="col-sm-6">${vitals.heart_rate ?? "—"}</dd>
+        <dt class="col-sm-6">Breath Rate</dt>
+        <dd class="col-sm-6">${vitals.breathing ?? "—"}</dd>
+        <dt class="col-sm-6">Sleep State</dt>
+        <dd class="col-sm-6">${vitals.sleep_state ?? "—"}</dd>
+    `;
+}
