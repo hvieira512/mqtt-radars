@@ -88,7 +88,6 @@ function handleMqttMessage($message) {
             CURLOPT_POSTFIELDS => json_encode($broadcast)
         ]);
         curl_exec($ch);
-        curl_close($ch);
     }
 }
 

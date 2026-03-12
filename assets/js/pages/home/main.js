@@ -20,97 +20,54 @@ const MODEL_MAP = {
 
 const radarsWrapper = document.getElementById("radars-wrappers");
 
-const CACHE_KEY = "hobacare_devices";
-const CACHE_TIME_KEY = "hobacare_devices_timestamp";
-const MAX_AGE = 30000;
+const getModelName = (modelNumber) => MODEL_MAP[modelNumber] || "Unknown model";
 
-const getCachedDevices = () => {
-    const cached = localStorage.getItem(CACHE_KEY);
-    const timestamp = localStorage.getItem(CACHE_TIME_KEY);
-
-    if (!cached || !timestamp) return null;
-
-    try {
-        const parsed = JSON.parse(cached);
-        return parsed;
-    } catch (e) {
-        console.warn("Invalid cached devices, clearing cache");
-        localStorage.removeItem(CACHE_KEY);
-        localStorage.removeItem(CACHE_TIME_KEY);
-        return null;
-    }
+const getWifiIcon = (isOnline) => {
+    const status = isOnline ? "success" : "danger";
+    const title = isOnline ? "Online" : "Offline";
+    return `<i class="fa-solid fa-wifi text-${status}" data-bs-toggle="tooltip" data-bs-placement="top" title="${title}"></i>`;
 };
 
-const cacheDevices = (devices) => {
-    localStorage.setItem(CACHE_KEY, JSON.stringify(devices));
-    localStorage.setItem(CACHE_TIME_KEY, Date.now());
-};
+const renderDeviceCard = ({ uid, eqt_name, modelNumber, isOnline }) => `
+    <div class="col-md-4 col-lg-3">
+        <div role="button" class="card device-card shadow-sm h-100"
+             data-bs-toggle="modal" data-bs-target="#radarModal" data-id="${uid}">
+            <div class="card-body d-flex flex-column">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="device-model fw-bold">Modelo ${getModelName(modelNumber)}</span>
+                    ${getWifiIcon(isOnline === "0")}
+                </div>
+                <h5 class="device-name mb-1">${eqt_name || "Unnamed Device"}</h5>
+                <small class="text-muted">UID: ${uid}</small>
+            </div>
+        </div>
+    </div>
+`;
 
+// Fetch devices
 const fetchDevices = async () => {
-    const cached = getCachedDevices();
-    if (cached) return cached;
-
-    const res = await sendRequest("getDeviceInfo");
-    const { data } = res;
-    if (!data) {
-        console.error("Invalid response from proxy");
-        return [];
-    }
-
-    cacheDevices(data);
-    return data;
+    const { data } = await sendRequest("getDeviceInfo");
+    return data || [];
 };
 
 const renderDevicesList = async () => {
     try {
         renderLoading(radarsWrapper);
-        const devices = await fetchDevices();
-        radarsWrapper.innerHTML = "";
 
+        const devices = await fetchDevices();
+
+        // Sort online first, then by name
         devices.sort((a, b) => {
             const aOnline = a.isOnline === "0";
             const bOnline = b.isOnline === "0";
-
             if (aOnline !== bOnline) return bOnline - aOnline;
 
-            const nameA = (a.eqt_name || "").toLowerCase();
-            const nameB = (b.eqt_name || "").toLowerCase();
-
-            return nameA.localeCompare(nameB);
+            return (a.eqt_name || "")
+                .toLowerCase()
+                .localeCompare((b.eqt_name || "").toLowerCase());
         });
 
-        devices.forEach((device) => {
-            const modelName = MODEL_MAP[device.modelNumber] || "Unknown model";
-            const isOnline = device.isOnline === "0";
-
-            const wifiIcon = isOnline
-                ? `<i class="fa-solid fa-wifi text-success" data-bs-toggle="tooltip" data-bs-placement="top" title="Online"></i>`
-                : `<i class="fa-solid fa-wifi text-danger" data-bs-toggle="tooltip" data-bs-placement="top" title="Offline"></i>`;
-
-            const card = document.createElement("div");
-            card.className = "col-md-4 col-lg-3";
-
-            card.innerHTML = `
-            <div role="button" class="card device-card shadow-sm h-100" 
-                data-bs-toggle="modal" data-bs-target="#radarModal" data-id="${device.uid}">
-
-                <div class="card-body d-flex flex-column">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span class="device-model fw-bold">Modelo ${modelName}</span>
-                        ${wifiIcon}
-                    </div>
-                    <h5 class="device-name mb-1">
-                        ${device.eqt_name || "Unnamed Device"}
-                    </h5>
-                    <small class="text-muted">
-                        UID: ${device.uid}
-                    </small>
-                </div>
-            </div>
-            `;
-
-            radarsWrapper.appendChild(card);
-        });
+        radarsWrapper.innerHTML = devices.map(renderDeviceCard).join("");
 
         initTooltips();
     } catch (error) {

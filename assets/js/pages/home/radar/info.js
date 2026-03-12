@@ -318,13 +318,13 @@ export function renderVitals(uid, vitals) {
     if (brSeries.dataItems.length > 60) brSeries.data.removeIndex(0);
 
     const sleepContainer = document.getElementById("sleep-state");
-    if (sleepContainer) {
-        const state =
-            sleepStateMap[vitals.sleep_state] ?? sleepStateMap["Undefined"];
-        sleepContainer.innerHTML = `
+    if (!sleepContainer) return;
+    const state =
+        sleepStateMap[vitals.sleep_state] ?? sleepStateMap["Undefined"];
+
+    sleepContainer.innerHTML = `
         <span class="d-flex align-items-center justify-content-center gap-2 fw-bold ${state.class}" style="font-size:1.1rem;">
             <i class="fa-solid ${state.icon}"></i> ${state.label}
         </span>
     `;
-    }
 }
