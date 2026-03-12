@@ -39,6 +39,7 @@ class PositionParser implements ParserInterface
 
         for ($i = 0; $i < $count; $i++) {
             $bytes = array_values(unpack('C*', substr($raw, $i * 16, 16)));
+            if ($bytes[0] == 88) continue;
             $x = $bytes[1] > 127 ? $bytes[1] - 256 : $bytes[1];
             $y = $bytes[2] > 127 ? $bytes[2] - 256 : $bytes[2];
 
