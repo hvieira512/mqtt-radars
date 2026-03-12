@@ -124,13 +124,27 @@ export function renderRoom(rectangle, declare_area, data) {
     // Radar center
     const [x, y] = transformCoords([0, 0]);
     layer.add(
-        new Konva.Circle({
-            x,
-            y,
-            radius: 6,
-            fill: "red",
-            stroke: "white",
-            strokeWidth: 2,
+        new Konva.Text({
+            x: x - 8, // center adjustment for icon
+            y: y - 8,
+            text: "\uf519", // fa-circle-info
+            fontFamily: "Font Awesome 6 Free",
+            fontStyle: "900",
+            fontSize: 16,
+            fill: "#0dcaf0", // Bootstrap info blue
+        }),
+    );
+    layer.add(
+        new Konva.Text({
+            x: x - 20, // center the text roughly under the icon
+            y: y + 10, // below the icon
+            text: "Radar",
+            fontSize: 12,
+            fontFamily: "Poppins",
+            fill: "#0dcaf0", // match the icon color
+            fontStyle: "bold",
+            align: "center",
+            width: 40,
         }),
     );
 
@@ -140,51 +154,162 @@ export function renderRoom(rectangle, declare_area, data) {
 // ──────────────────────────────
 // Update people positions
 // ──────────────────────────────
-export function updatePeople(people) {
-    if (!peopleLayer || !transformCoords) return;
+const POSTURE_STYLE = {
+    Initialization: {
+        icon: "\uf128", // fa-question
+        color: "#6c757d", // bootstrap secondary
+        labelPT: "Inicialização",
+    },
 
-    console.log(people);
+    Walking: {
+        icon: "\uf554", // fa-person-walking
+        color: "#0d6efd", // bootstrap primary
+        labelPT: "Caminhando",
+    },
+
+    "Suspected Fall": {
+        icon: "\uf071", // fa-triangle-exclamation
+        color: "#ffc107", // bootstrap warning
+        labelPT: "Suspeita de Queda",
+    },
+
+    Squatting: {
+        icon: "\uf6ec", // fa-person-sitting
+        color: "#fd7e14", // bootstrap orange
+        labelPT: "Agachado",
+    },
+
+    Standing: {
+        icon: "\uf183", // fa-person
+        color: "#198754", // bootstrap success
+        labelPT: "Em Pé",
+    },
+
+    "Fall Confirmation": {
+        icon: "\uf071", // fa-triangle-exclamation
+        color: "#dc3545", // bootstrap danger
+        labelPT: "Queda Confirmada",
+    },
+
+    "Lying Down": {
+        icon: "\uf236", // fa-bed
+        color: "#6f42c1", // bootstrap purple
+        labelPT: "Deitado",
+    },
+
+    "Suspected Sitting on Ground": {
+        icon: "\uf6ec", // fa-person-sitting
+        color: "#ffc107", // bootstrap warning
+        labelPT: "Suspeita Sentado no Chão",
+    },
+
+    "Confirmed Sitting on Ground": {
+        icon: "\uf6ec", // fa-person-sitting
+        color: "#fd7e14", // bootstrap orange
+        labelPT: "Sentado no Chão Confirmado",
+    },
+
+    "Sitting Up Bed": {
+        icon: "\uf236", // fa-bed
+        color: "#0dcaf0", // bootstrap info
+        labelPT: "Sentado na Cama",
+    },
+
+    "Suspected Sitting Up Bed": {
+        icon: "\uf071", // fa-triangle-exclamation
+        color: "#ffc107", // bootstrap warning
+        labelPT: "Suspeita Sentado na Cama",
+    },
+
+    "Confirmed Sitting Up Bed": {
+        icon: "\uf4b7", // fa-procedures
+        color: "#198754", // bootstrap success
+        labelPT: "Sentado na Cama Confirmado",
+    },
+};
+
+export function updatePeople(people) {
+    if (!stage || !peopleLayer || !transformCoords) return;
+
     people.forEach((p) => {
         const [x, y] = transformCoords([p.x_position_dm, p.y_position_dm]);
+        const style =
+            POSTURE_STYLE[p.posture_state] ?? POSTURE_STYLE["Initialization"];
+
         let node = peopleNodes.get(p.person_index);
 
         if (!node) {
             const group = new Konva.Group({ x, y });
+
             const circle = new Konva.Circle({
                 x: 0,
                 y: 0,
-                radius: 8,
-                fill: "#00bfff",
-                stroke: "white",
-                strokeWidth: 2,
+                radius: 10,
+                fill: "#0d6efd22",
+                stroke: style.color,
+                strokeWidth: 3,
+            });
+
+            const icon = new Konva.Text({
+                x: -6,
+                y: -7,
+                text: style.icon,
+                fontFamily: "Font Awesome 6 Free",
+                fontStyle: "900",
+                fontSize: 12,
+                fill: style.color,
             });
 
             const label = new Konva.Text({
-                x: 10,
+                x: 14,
                 y: -8,
-                text: `P${p.person_index}`,
+                text: style.labelPT,
                 fontSize: 12,
-                fill: "white",
+                fontStyle: "bold",
+                fill: style.color,
             });
 
-            group.add(circle);
-            group.add(label);
+            group.circle = circle;
+            group.icon = icon;
+            group.label = label;
+
+            group.add(circle, icon, label);
 
             peopleLayer.add(group);
             peopleNodes.set(p.person_index, group);
             node = group;
+        } else {
+            const { circle, icon, label } = node;
+
+            circle.stroke(style.color);
+            icon.text(style.icon);
+            icon.fill(style.color);
+            label.text(style.labelPT);
+            label.fill(style.color);
         }
 
-        node.position({ x, y });
+        node.to({
+            x,
+            y,
+            duration: 0.2,
+        });
     });
 
-    peopleLayer.draw();
+    peopleLayer.batchDraw();
 }
 
 // ──────────────────────────────
 // Destroy map
 // ──────────────────────────────
 export function destroyRadarMap() {
-    if (stage) stage.destroy();
+    if (stage) {
+        stage.destroy();
+        stage = null;
+    }
+
+    layer = null;
+    peopleLayer = null;
+    transformCoords = null;
+
     peopleNodes.clear();
 }
