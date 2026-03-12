@@ -184,24 +184,147 @@ export function renderRadarInfo(container, data) {
     `;
 }
 
+let chartHR, chartBR, hrSeries, brSeries;
+
+const sleepStateMap = {
+    Undefined: {
+        label: "Indefinido",
+        icon: "fa-question-circle",
+        class: "text-secondary",
+    },
+    "Light Sleep": { label: "Sono Leve", icon: "fa-bed", class: "text-info" },
+    "Deep Sleep": {
+        label: "Sono Profundo",
+        icon: "fa-moon",
+        class: "text-primary",
+    },
+    Awake: { label: "Acordado", icon: "fa-eye", class: "text-success" },
+};
+
 export function renderVitals(uid, vitals) {
     const container = document.getElementById("liveRadarInfo");
-    if (!container) return;
-    if (container.closest("#radarModal").dataset.id !== uid) return;
 
-    let hbContainer = container.querySelector(".hb-data");
-    if (!hbContainer) {
-        hbContainer = document.createElement("dl");
-        hbContainer.className = "hb-data row small mb-0";
-        container.appendChild(hbContainer);
+    if (!container || container.closest("#radarModal").dataset.id !== uid)
+        return;
+
+    const now = new Date().getTime();
+
+    // Initialize Heart Rate chart
+    if (!chartHR) {
+        const heartRateGraph = am5.Root.new("chart-heart-rate");
+        heartRateGraph.setThemes([am5themes_Animated.new(heartRateGraph)]);
+        chartHR = heartRateGraph.container.children.push(
+            am5xy.XYChart.new(heartRateGraph, {
+                layout: heartRateGraph.verticalLayout,
+            }),
+        );
+
+        const xAxisHR = chartHR.xAxes.push(
+            am5xy.DateAxis.new(heartRateGraph, {
+                baseInterval: { timeUnit: "second", count: 1 },
+                renderer: am5xy.AxisRendererX.new(heartRateGraph, {
+                    visible: false,
+                }),
+            }),
+        );
+
+        const yAxisHR = chartHR.yAxes.push(
+            am5xy.ValueAxis.new(heartRateGraph, {
+                min: 40,
+                max: 180,
+                strictMinMax: true,
+                renderer: am5xy.AxisRendererY.new(heartRateGraph, {
+                    labels: { fill: am5.color(0xff0000), fontSize: 12 },
+                    strokeOpacity: 0.3,
+                }),
+            }),
+        );
+
+        hrSeries = chartHR.series.push(
+            am5xy.LineSeries.new(heartRateGraph, {
+                name: "Heart Rate",
+                xAxis: xAxisHR,
+                yAxis: yAxisHR,
+                valueYField: "value",
+                valueXField: "time",
+                stroke: am5.color(0xff0000),
+                strokeWidth: 2,
+                tensionX: 0.7,
+                tooltip: am5.Tooltip.new(heartRateGraph, {
+                    labelText: "{valueY}",
+                }),
+            }),
+        );
+
+        hrSeries.data.setAll([]);
     }
 
-    hbContainer.innerHTML = `
-        <dt class="col-sm-6">Heart Rate</dt>
-        <dd class="col-sm-6">${vitals.heart_rate ?? "—"}</dd>
-        <dt class="col-sm-6">Breath Rate</dt>
-        <dd class="col-sm-6">${vitals.breathing ?? "—"}</dd>
-        <dt class="col-sm-6">Sleep State</dt>
-        <dd class="col-sm-6">${vitals.sleep_state ?? "—"}</dd>
+    // Initialize Breath Rate chart
+    if (!chartBR) {
+        const breathRateGraph = am5.Root.new("chart-breath-rate");
+        breathRateGraph.setThemes([am5themes_Animated.new(breathRateGraph)]);
+        chartBR = breathRateGraph.container.children.push(
+            am5xy.XYChart.new(breathRateGraph, {
+                layout: breathRateGraph.verticalLayout,
+            }),
+        );
+
+        const xAxisBR = chartBR.xAxes.push(
+            am5xy.DateAxis.new(breathRateGraph, {
+                baseInterval: { timeUnit: "second", count: 1 },
+                renderer: am5xy.AxisRendererX.new(breathRateGraph, {
+                    visible: false,
+                }),
+            }),
+        );
+
+        const yAxisBR = chartBR.yAxes.push(
+            am5xy.ValueAxis.new(breathRateGraph, {
+                min: 0,
+                max: 40,
+                strictMinMax: true,
+                renderer: am5xy.AxisRendererY.new(breathRateGraph, {
+                    labels: { fill: am5.color(0x00ffff), fontSize: 12 },
+                    strokeOpacity: 0.3,
+                }),
+            }),
+        );
+
+        brSeries = chartBR.series.push(
+            am5xy.LineSeries.new(breathRateGraph, {
+                name: "Breath Rate",
+                xAxis: xAxisBR,
+                yAxis: yAxisBR,
+                valueYField: "value",
+                valueXField: "time",
+                stroke: am5.color(0x00ffff),
+                strokeWidth: 2,
+                tensionX: 0.7,
+                tooltip: am5.Tooltip.new(breathRateGraph, {
+                    labelText: "{valueY}",
+                }),
+            }),
+        );
+
+        brSeries.data.setAll([]);
+    }
+
+    // Push new points
+    hrSeries.data.push({ time: now, value: vitals.heart_rate ?? 0 });
+    brSeries.data.push({ time: now, value: vitals.breathing ?? 0 });
+
+    // Keep last 60 points
+    if (hrSeries.dataItems.length > 60) hrSeries.data.removeIndex(0);
+    if (brSeries.dataItems.length > 60) brSeries.data.removeIndex(0);
+
+    const sleepContainer = document.getElementById("sleep-state");
+    if (sleepContainer) {
+        const state =
+            sleepStateMap[vitals.sleep_state] ?? sleepStateMap["Undefined"];
+        sleepContainer.innerHTML = `
+        <span class="d-flex align-items-center justify-content-center gap-2 fw-bold ${state.class}" style="font-size:1.1rem;">
+            <i class="fa-solid ${state.icon}"></i> ${state.label}
+        </span>
     `;
+    }
 }
