@@ -75,3 +75,30 @@ export const getAreaName = (data, key, type) => {
     }
     return label;
 };
+
+export function updateCurrentPeople(count) {
+    const el = document.querySelector("#current-people");
+    if (!el) return;
+
+    el.innerHTML = `<span id="people-count">${count}</span> ${
+        count === 1 ? "pessoa" : "pessoas"
+    }`;
+
+    el.className = "d-flex justify-content-center gap-2 align-items-center";
+
+    const countEl = document.querySelector("#people-count");
+    if (!countEl) return;
+    countEl.className = "";
+
+    const colorClasses = [
+        { max: 0, class: "danger" },
+        { max: 1, class: "success" },
+        { max: 5, class: "primary" },
+        { max: 10, class: "warning" },
+        { max: Infinity, class: "danger" },
+    ];
+
+    const colorClass =
+        colorClasses.find((c) => count <= c.max)?.class || "secondary";
+    countEl.className = `h4 fw-bold mb-0 text-${colorClass}`;
+}

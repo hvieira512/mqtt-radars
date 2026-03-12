@@ -5,6 +5,7 @@ import {
     parseRectangle,
     parseAreas,
     getAreaName,
+    updateCurrentPeople,
 } from "./utils.js";
 
 let stage = null;
@@ -164,7 +165,7 @@ const POSTURE_STYLE = {
     Walking: {
         icon: "\uf554", // fa-person-walking
         color: "#0d6efd", // bootstrap primary
-        labelPT: "Caminhando",
+        labelPT: "A Andar",
     },
 
     "Suspected Fall": {
@@ -216,13 +217,13 @@ const POSTURE_STYLE = {
     },
 
     "Suspected Sitting Up Bed": {
-        icon: "\uf071", // fa-triangle-exclamation
+        icon: "\uf236", // fa-triangle-exclamation
         color: "#ffc107", // bootstrap warning
         labelPT: "Suspeita Sentado na Cama",
     },
 
     "Confirmed Sitting Up Bed": {
-        icon: "\uf4b7", // fa-procedures
+        icon: "\uf236", // fa-procedures
         color: "#198754", // bootstrap success
         labelPT: "Sentado na Cama Confirmado",
     },
@@ -295,6 +296,7 @@ export function updatePeople(people) {
         });
     });
 
+    updateCurrentPeople(people.length);
     peopleLayer.batchDraw();
 }
 
