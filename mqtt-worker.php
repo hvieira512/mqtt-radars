@@ -10,6 +10,8 @@ use App\RadarRepository;
 use App\Logger;
 use App\Parsers\PositionParser;
 use App\Parsers\HeartBreathParser;
+use App\Parsers\HbStaticsParser;
+use App\Parsers\PosStaticsParser;
 
 $repo = new RadarRepository();
 
@@ -33,6 +35,8 @@ Logger::info("MQTT connected");
 $parsers = [
     'position' => new PositionParser(),
     'heartbreath' => new HeartBreathParser(),
+    'hbstatics' => new HbStaticsParser(),
+    'posstatics' => new PosStaticsParser(),
 ];
 
 $mqtt->subscribe($topic, function ($topic, $message) use ($parsers, $repo) {
@@ -65,7 +69,7 @@ $mqtt->subscribe($topic, function ($topic, $message) use ($parsers, $repo) {
 
             case 'position':
                 $repo->insertPosition($eventId, $parsed['people']);
-                $broadcast['position'] = $parsed['people'];
+                $broadcast['position'] = $parsed;
                 break;
 
             case 'vitals':
