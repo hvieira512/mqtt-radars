@@ -30,9 +30,8 @@ export function initRadarWebsocket() {
         const messages = Array.isArray(msg) ? msg : [msg];
 
         messages.forEach((data) => {
-            console.log(data);
-            if (data.position && Array.isArray(data.position)) {
-                updatePeople(data.position);
+            if (data.type === "position" && Array.isArray(data.people)) {
+                updatePeople(data.people);
             }
 
             if (data.type === "vitals") {

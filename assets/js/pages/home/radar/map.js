@@ -143,29 +143,33 @@ export function renderRoom(rectangle, declare_area, data) {
 export function updatePeople(people) {
     if (!peopleLayer || !transformCoords) return;
 
+    console.log(people);
     people.forEach((p) => {
         const [x, y] = transformCoords([p.x_position_dm, p.y_position_dm]);
         let node = peopleNodes.get(p.person_index);
 
         if (!node) {
+            const group = new Konva.Group({ x, y });
             const circle = new Konva.Circle({
-                x,
-                y,
+                x: 0,
+                y: 0,
                 radius: 8,
                 fill: "#00bfff",
                 stroke: "white",
                 strokeWidth: 2,
             });
+
             const label = new Konva.Text({
-                x: x + 10,
-                y: y - 8,
+                x: 10,
+                y: -8,
                 text: `P${p.person_index}`,
                 fontSize: 12,
                 fill: "white",
             });
-            const group = new Konva.Group();
+
             group.add(circle);
             group.add(label);
+
             peopleLayer.add(group);
             peopleNodes.set(p.person_index, group);
             node = group;
