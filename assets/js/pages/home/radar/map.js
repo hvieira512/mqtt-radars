@@ -232,12 +232,24 @@ const POSTURE_STYLE = {
 export function updatePeople(people) {
     if (!stage || !peopleLayer || !transformCoords) return;
 
+    if (people.length === 1 && people[0].person_index === 88) {
+        peopleNodes.forEach((node) => node.destroy());
+        peopleNodes.clear();
+
+        updateCurrentPeople(0);
+        peopleLayer.batchDraw();
+        return;
+    }
+
+    const activeIndexes = new Set();
+
     people.forEach((p) => {
         const [x, y] = transformCoords([p.x_position_dm, p.y_position_dm]);
         const style =
             POSTURE_STYLE[p.posture_state] ?? POSTURE_STYLE["Initialization"];
 
         let node = peopleNodes.get(p.person_index);
+        activeIndexes.add(p.person_index);
 
         if (!node) {
             const group = new Konva.Group({ x, y });
@@ -296,7 +308,14 @@ export function updatePeople(people) {
         });
     });
 
-    updateCurrentPeople(people.length);
+    peopleNodes.forEach((node, index) => {
+        if (!activeIndexes.has(index)) {
+            node.destroy();
+            peopleNodes.delete(index);
+        }
+    });
+
+    updateCurrentPeople(peopleNodes.size);
     peopleLayer.batchDraw();
 }
 
