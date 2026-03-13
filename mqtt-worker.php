@@ -4,6 +4,7 @@ error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 require __DIR__ . '/vendor/autoload.php';
 require __DIR__ . '/bootstrap.php';
 
+use App\AlarmEngine;
 use App\EventTypes;
 use PhpMqtt\Client\MqttClient;
 use PhpMqtt\Client\ConnectionSettings;
@@ -40,10 +41,10 @@ $parsers = [
 /**
  * Handles incoming MQTT messages
  *
- * @param [type] $message
+ * @param string $message
  * @return void
  */
-function handleMqttMessage($message)
+function handleMqttMessage(string $message): void
 {
     global $parsers, $repo;
 
@@ -52,11 +53,9 @@ function handleMqttMessage($message)
 
     $payload = $data['payload'];
     $deviceCode = $payload['deviceCode'] ?? null;
-
     if (!$deviceCode) return;
 
     $deviceId = $repo->getDeviceId($deviceCode);
-
     $broadcast = [];
 
     foreach ($parsers as $key => $parser) {
@@ -89,6 +88,18 @@ function handleMqttMessage($message)
                 break;
         }
 
+        // Evaluate alarms
+        $alarms = AlarmEngine::evaluate($parsed);
+        foreach ($alarms as $alarm) {
+            if (!isset($alarm['message'])) {
+                $alarm['message'] = "Evento detectado: {$alarm['alarm_type']}";
+            }
+
+            $alarm['device_code'] = $deviceCode;
+            $broadcast[] = $alarm;
+        }
+
+        // Append the parsed payload itself for broadcast
         $parsed['device_code'] = $deviceCode;
         $broadcast[] = $parsed;
     }
@@ -105,9 +116,9 @@ function handleMqttMessage($message)
         ]);
 
         curl_exec($ch);
-        curl_close($ch);
     }
 }
+
 
 /**
  * Connects and subscribes to the MQTT broker
@@ -117,7 +128,8 @@ function handleMqttMessage($message)
  * @param string $topic
  * @return void
  */
-function connectAndSubscribe(MqttClient $mqtt, ConnectionSettings $settings, string $topic) {
+function connectAndSubscribe(MqttClient $mqtt, ConnectionSettings $settings, string $topic)
+{
     $mqtt->connect($settings, true);
     Logger::info("MQTT connected");
 

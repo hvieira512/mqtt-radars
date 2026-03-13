@@ -11,6 +11,7 @@
     <link rel="icon" type="image/x-icon" href="./assets/images/logo.jpeg">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/poppins@5.2.7/index.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.22/dist/sweetalert2.min.css">
 </head>
 
 <body class="bg-light">
@@ -77,11 +78,13 @@
                                 <div id="liveRadarInfo" class="card-body d-flex flex-column gap-3">
                                     <div id="sleep-state"></div>
                                     <div class="chart-container">
-                                        <h6 class="fw-bold"><i class="fas fa-heart text-danger"></i> Frequência Cardíaca (bpm)</h6>
+                                        <h6 class="fw-bold"><i class="fas fa-heart text-danger"></i> Frequência Cardíaca
+                                            (bpm)</h6>
                                         <div id="chart-heart-rate" class="w-100" style="height: 250px;"></div>
                                     </div>
                                     <div class="chart-container mb-3">
-                                        <h6 class="fw-bold"><i class="fas fa-lungs text-primary"></i> Frequência de Respiração (rpm)</h6>
+                                        <h6 class="fw-bold"><i class="fas fa-lungs text-primary"></i> Frequência de
+                                            Respiração (rpm)</h6>
                                         <div id="chart-breath-rate" class="w-100" style="height: 250px;"></div>
                                     </div>
                                 </div>
@@ -141,6 +144,7 @@
     <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
     <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
     <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.22/dist/sweetalert2.all.min.js"></script>
     <script type="module" src="./assets/js/pages/home/main.js"></script>
 </body>
 
