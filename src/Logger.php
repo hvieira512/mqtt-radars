@@ -19,44 +19,49 @@ class Logger
         self::log("ERROR", $msg);
     }
 
-    public static function logData(array $data, ?string $timestamp = null): void
+    public static function logData(array $data): void
     {
-        $timestamp = $timestamp ?? date('H:i:s');
+        $lines = [];
+        $lines[] = "Type: {$data['type']}, Device: {$data['device_code']}";
 
-        echo "[$timestamp] Type: {$data['type']}, Device: {$data['device_code']}\n";
+        if (!empty($data['people']) && is_array($data['people'])) {
 
-        if (isset($data['people']) && is_array($data['people'])) {
             foreach ($data['people'] as $p) {
-                echo "  Person {$p['person_index']}: ";
-                echo "x={$p['x_position_dm']} dm, ";
-                echo "y={$p['y_position_dm']} dm, ";
-                echo "z={$p['z_position_cm']} cm, ";
-                echo "Posture={$p['posture_state']}, ";
-                echo "Event={$p['last_event']}, ";
-                echo "Region={$p['region_id']}";
+
+                $line = "Person {$p['person_index']}: "
+                    . "x={$p['x_position_dm']} dm, "
+                    . "y={$p['y_position_dm']} dm, "
+                    . "z={$p['z_position_cm']} cm, "
+                    . "Posture={$p['posture_state']}, "
+                    . "Event={$p['last_event']}, "
+                    . "Region ID={$p['region_id']}";
 
                 if (isset($p['rotation_deg'])) {
-                    echo ", Rotation={$p['rotation_deg']}°";
+                    $line .= ", Rotation={$p['rotation_deg']}°";
                 }
 
                 if (isset($p['direction'])) {
                     $dx = $p['direction']['dx'] ?? 0;
                     $dy = $p['direction']['dy'] ?? 0;
-                    echo sprintf(", Direction=(%.2f, %.2f)", $dx, $dy);
+                    $line .= ", Direction=(dx:$dx, dy:$dy)";
                 }
 
-                echo "\n";
+                $lines[] = $line;
             }
         } else {
+
             foreach ($data as $k => $v) {
                 if (!in_array($k, ['type', 'device_code', 'people'])) {
-                    echo "  $k: $v\n";
+                    $lines[] = "$k: $v";
                 }
             }
         }
 
-        echo str_repeat("-", 50) . "\n";
+        $lines[] = str_repeat("-", 50);
+
+        Logger::info(implode("\n", $lines));
     }
+
 
     private static function log(string $level, string $msg): void
     {

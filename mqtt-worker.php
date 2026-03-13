@@ -4,6 +4,7 @@ error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 require __DIR__ . '/vendor/autoload.php';
 require __DIR__ . '/bootstrap.php';
 
+use App\EventTypes;
 use PhpMqtt\Client\MqttClient;
 use PhpMqtt\Client\ConnectionSettings;
 use PhpMqtt\Client\Exceptions\DataTransferException;
@@ -38,8 +39,12 @@ $parsers = [
 
 /**
  * Handles incoming MQTT messages
+ *
+ * @param [type] $message
+ * @return void
  */
-function handleMqttMessage($message) {
+function handleMqttMessage($message)
+{
     global $parsers, $repo;
 
     $data = json_decode($message, true);
@@ -47,52 +52,70 @@ function handleMqttMessage($message) {
 
     $payload = $data['payload'];
     $deviceCode = $payload['deviceCode'] ?? null;
+
+    if (!$deviceCode) return;
+
+    $deviceId = $repo->getDeviceId($deviceCode);
+
     $broadcast = [];
 
     foreach ($parsers as $key => $parser) {
+
         if (!isset($payload[$key])) continue;
+
         $parsed = $parser->parse($payload[$key], $deviceCode);
         if (!$parsed) continue;
 
         Logger::logData($parsed);
 
-        $deviceId = $repo->getDeviceId($deviceCode);
-        $eventId = $repo->createEvent($deviceId, $parsed['type']);
+        $eventTypeId = EventTypes::fromString($parsed['type']);
+        $eventId = $repo->createEvent($deviceId, $eventTypeId);
 
         switch ($parsed['type']) {
             case 'position':
                 $repo->insertPosition($eventId, $parsed['people']);
-                $broadcast['position'] = $parsed;
                 break;
+
             case 'vitals':
                 $repo->insertVitals($eventId, $parsed);
-                $broadcast['vitals'] = $parsed;
                 break;
+
             case 'minute_stats':
                 $repo->insertMinuteStats($eventId, $parsed);
-                $broadcast['minute_stats'] = $parsed;
                 break;
+
             case 'hbstatics':
                 $repo->insertHbStatics($eventId, $parsed);
-                $broadcast['hbstatics'] = $parsed;
                 break;
         }
+
+        $parsed['device_code'] = $deviceCode;
+        $broadcast[] = $parsed;
     }
 
     if (!empty($broadcast)) {
+
         $ch = curl_init("http://127.0.0.1:8081/broadcast");
+
         curl_setopt_array($ch, [
             CURLOPT_POST => true,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
             CURLOPT_POSTFIELDS => json_encode($broadcast)
         ]);
+
         curl_exec($ch);
+        curl_close($ch);
     }
 }
 
 /**
  * Connects and subscribes to the MQTT broker
+ *
+ * @param MqttClient $mqtt
+ * @param ConnectionSettings $settings
+ * @param string $topic
+ * @return void
  */
 function connectAndSubscribe(MqttClient $mqtt, ConnectionSettings $settings, string $topic) {
     $mqtt->connect($settings, true);

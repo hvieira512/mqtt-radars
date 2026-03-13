@@ -7,6 +7,7 @@ use PDO;
 class RadarRepository
 {
     private PDO $db;
+    private array $deviceCache = [];
 
     public function __construct()
     {
@@ -15,22 +16,28 @@ class RadarRepository
 
     public function getDeviceId(string $deviceCode): int
     {
+        if (isset($this->deviceCache[$deviceCode])) {
+            return $this->deviceCache[$deviceCode];
+        }
+
         $stmt = $this->db->prepare("SELECT id FROM devices WHERE device_code = ?");
         $stmt->execute([$deviceCode]);
         $id = $stmt->fetchColumn();
 
-        if ($id) return (int)$id;
+        if (!$id) {
+            $stmt = $this->db->prepare("INSERT INTO devices (device_code) VALUES (?)");
+            $stmt->execute([$deviceCode]);
+            $id = $this->db->lastInsertId();
+        }
 
-        $stmt = $this->db->prepare("INSERT INTO devices (device_code) VALUES (?)");
-        $stmt->execute([$deviceCode]);
-
-        return (int)$this->db->lastInsertId();
+        return $this->deviceCache[$deviceCode] = (int)$id;
     }
 
-    public function createEvent(int $deviceId, string $type): int
+
+    public function createEvent(int $deviceId, int $eventTypeId): int
     {
-        $stmt = $this->db->prepare("INSERT INTO radar_events (device_id, event_type) VALUES (?, ?)");
-        $stmt->execute([$deviceId, $type]);
+        $stmt = $this->db->prepare("INSERT INTO radar_events (device_id, event_type_id) VALUES (?, ?)");
+        $stmt->execute([$deviceId, $eventTypeId]);
 
         return (int)$this->db->lastInsertId();
     }
@@ -39,8 +46,7 @@ class RadarRepository
     {
         $stmt = $this->db->prepare("
             INSERT INTO radar_position_people
-            (event_id, person_index, x_position_dm, y_position_dm, z_position_cm,
-             time_left_seconds, posture_state, last_event, region_id)
+            (event_id, person_index, x_position_dm, y_position_dm, z_position_cm, time_left_seconds, posture_state, last_event, region_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
@@ -120,6 +126,24 @@ class RadarRepository
             $data['heart_rate_status_per_minute'],
             $data['vital_signs_status'],
             $data['sleep_state_status']
+        ]);
+    }
+
+    public function insertAlarmEvent(int $eventId, array $data): void
+    {
+        $stmt = $this->db->prepare("
+            INSERT INTO radar_alarm_events
+            (event_id, event_code, event_name, zone_id, person_index, extra_data)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+
+        $stmt->execute([
+            $eventId,
+            $data['event_code'] ?? null,
+            $data['event_name'] ?? null,
+            $data['zone_id'] ?? null,
+            $data['person_index'] ?? null,
+            isset($data['params']) ? json_encode($data['params']) : null
         ]);
     }
 }

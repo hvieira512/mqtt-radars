@@ -3,6 +3,7 @@ error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
 
 require __DIR__ . '/vendor/autoload.php';
 
+use App\Logger;
 use Ratchet\MessageComponentInterface;
 use Ratchet\ConnectionInterface;
 use Ratchet\Http\HttpServer;
@@ -37,7 +38,7 @@ class RadarWebSocket implements MessageComponentInterface
 
         if (!empty($data['action']) && $data['action'] === 'subscribe' && !empty($data['deviceCode'])) {
             $this->subscriptions[$from->resourceId] = $data['deviceCode'];
-            echo "[" . date('H:i:s') . "] Client {$from->resourceId} subscribed to deviceCode: {$data['deviceCode']}\n";
+            Logger::info("Client {$from->resourceId} subscribed to deviceCode: {$data['deviceCode']}");
         }
     }
 
@@ -45,12 +46,12 @@ class RadarWebSocket implements MessageComponentInterface
     {
         unset($this->subscriptions[$conn->resourceId]);
         $this->clients->detach($conn);
-        echo "[" . date('H:i:s') . "] WS disconnected: {$conn->resourceId}\n";
+        Logger::info("Client {$conn->resourceId} disconnected");
     }
 
     public function onError(ConnectionInterface $conn, \Exception $e)
     {
-        echo "[" . date('H:i:s') . "] WS error: {$e->getMessage()}\n";
+        Logger::error("Client {$conn->resourceId} error: {$e->getMessage()}");
         $conn->close();
     }
 
@@ -70,7 +71,7 @@ class RadarWebSocket implements MessageComponentInterface
             }
         }
 
-        echo "[" . date('H:i:s') . "] Broadcast completed. Clients: {$this->clients->count()}\n";
+        Logger::info("Broadcast completed. Clients: {$this->clients->count()}");
     }
 }
 
@@ -85,7 +86,7 @@ new IoServer(
     $wsSocket,
     $loop
 );
-echo "WebSocket running on ws://localhost:8080\n";
+Logger::info("WebSocket server started on ws://localhost:8080");
 
 // HTTP endpoint for MQTT worker
 $httpServer = new ReactHttp(function (ServerRequestInterface $request) use ($radarWs) {
@@ -105,6 +106,6 @@ $httpServer = new ReactHttp(function (ServerRequestInterface $request) use ($rad
 
 $httpSocket = new ReactSocket('127.0.0.1:8081', $loop);
 $httpServer->listen($httpSocket);
-echo "HTTP broadcast endpoint running on http://127.0.0.1:8081/broadcast\n";
+Logger::info("HTTP server started on http://127.0.0.1:8081/broadcast");
 
 $loop->run();
