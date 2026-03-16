@@ -141,6 +141,7 @@ function connectAndSubscribe(MqttClient $mqtt, ConnectionSettings $settings, str
 /**
  * Main loop with reconnect logic
  */
+Logger::info("MQTT Worker started");
 while (true) {
     try {
         if (!$mqtt->isConnected()) {

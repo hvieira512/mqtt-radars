@@ -8,7 +8,7 @@
 
 # O que falta fazer
 
-- Configuração de áreas
+- Configuração de Regiãos
 - Configuração de parâmetros extra
 - Guardar na base de dados os alertas e eventos que acontecem
 - Mostrar tabela alarmes e eventos

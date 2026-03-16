@@ -4,7 +4,7 @@ import { getMapCache, getAreaName } from "./utils.js";
 export const renderAlarm = (a) => {
     if (!a) return;
 
-    const theme = a.category === "alarm" ? "danger" : "info";
+    const theme = a.category === "alarm" ? "warning" : "info";
 
     const layoutData = getMapCache(a.device_code);
     const regionName = layoutData

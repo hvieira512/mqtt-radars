@@ -14,6 +14,7 @@ const typeTranslations = {
 
 const defaultOptions = {
     defaultColDef: {
+        filter: true,
         cellClass: "d-flex align-items-center",
     },
     rowHeight: 50,
@@ -22,6 +23,7 @@ const defaultOptions = {
     pagination: true,
     paginationPageSize: 10,
     theme: "ag-theme-quartz",
+    overlayNoRowsTemplate: "Sem resultados",
 };
 
 export function initGrids() {
@@ -71,7 +73,12 @@ export function initGrids() {
                     headerName: "Opções",
                     cellRenderer: () => {
                         const btn = document.createElement("button");
-                        btn.className = "btn btn-outline-primary btn-sm me-2";
+                        btn.className = "btn btn-outline-primary btn-sm";
+                        btn.setAttribute("data-bs-toggle", "modal");
+                        btn.setAttribute(
+                            "data-bs-target",
+                            "#resolveAlarmModal",
+                        );
                         btn.innerHTML =
                             "<i class='fa-solid fa-pencil me-2'></i> Resolver";
                         return btn;

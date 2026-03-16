@@ -5,7 +5,7 @@ export const AREA_LABELS = {
     3: "Interferência",
     4: "Porta",
     5: "Cama de Monitorização",
-    6: "Área de alarme",
+    6: "Região de alarme",
 };
 
 export const AREA_COLORS = {

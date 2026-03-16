@@ -27,6 +27,81 @@
         <div id="radars-wrappers" class="row g-3 row-cols-1 row-cols-md-2 row-cols-lg-4 mt-3"></div>
     </div>
 
+    <div class="modal fade" id="resolveAlarmModal" tabindex="-1" aria-labelledby="resolveAlarmModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="resolveAlarmModalLabel">Resolver Alarme</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="resolveAlarmForm" class="d-flex flex-column gap-3">
+                        <div class="row g-2 row-cols-1 row-cols-lg-2">
+
+                            <div class="col">
+                                <div class="input-group">
+                                    <label class="form-label w-100">Hora e Tempo do Alarme</label>
+                                    <span class="input-group-text p-3 rounded-start">
+                                        <i class="fa-solid fa-clock mx-auto"></i>
+                                    </span>
+                                    <input type="datetime" name="timestamp" class="form-control rounded-end">
+                                </div>
+                            </div>
+
+                            <div class="col">
+                                <div class="input-group">
+                                    <label class="form-label w-100">Dispositivo</label>
+                                    <span class="input-group-text rounded-start p-3">
+                                        <i class="fa-solid fa-wifi mx-auto"></i>
+                                    </span>
+                                    <input type="text" name="device" class="form-control rounded-end">
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="input-group">
+                            <label class="form-label w-100">
+                                Causa <span class="text-danger">*</span>
+                            </label>
+                            <div class="btn-group w-100" role="group" aria-label="Basic radio toggle button group for the cause">
+                                <input type="radio" class="btn-check" name="btnradio" id="btnradio1" autocomplete="off"
+                                    checked>
+                                <label class="btn btn-outline-primary" for="btnradio1">Real</label>
+    
+                                <input type="radio" class="btn-check" name="btnradio" id="btnradio2" autocomplete="off">
+                                <label class="btn btn-outline-primary" for="btnradio2">Teste</label>
+    
+                                <input type="radio" class="btn-check" name="btnradio" id="btnradio3" autocomplete="off">
+                                <label class="btn btn-outline-primary" for="btnradio3">Falso</label>
+
+                                <input type="radio" class="btn-check" name="btnradio" id="btnradio4" autocomplete="off">
+                                <label class="btn btn-outline-primary" for="btnradio4">Outro</label>
+                            </div>
+                        </div>
+
+                        <div class="input-group">   
+                            <label class="form-label w-100">Comentários</label>
+                            <span class="input-group-text rounded-start p-3">
+                                <i class="fa-solid fa-comments mx-auto"></i>
+                            </span>
+                            <textarea name="comments" class="form-control rounded-end"></textarea>
+                        </div>
+
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <div class="d-flex justify-content-end">
+                        <button type="submit" form="resolveAlarmForm" class="btn btn-primary">
+                            <i class="fa-solid fa-floppy-disk me-2"></i> Guardar
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="radarModal" tabindex="-1" aria-labelledby="radarModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-fullscreen">
             <div class="modal-content">
@@ -58,7 +133,7 @@
 
                                         <div class="d-flex align-items-center gap-2">
                                             <span class="legend-color" style="background:#ff4500"></span>
-                                            <small>Área de Alarme</small>
+                                            <small>Região de Alarme</small>
                                         </div>
 
                                         <div class="d-flex align-items-center gap-2">
@@ -68,7 +143,7 @@
 
                                         <div class="d-flex align-items-center gap-2">
                                             <span class="legend-color" style="background:#a9a9a9"></span>
-                                            <small>Outras Áreas</small>
+                                            <small>Outras Regiãos</small>
                                         </div>
 
                                     </div>

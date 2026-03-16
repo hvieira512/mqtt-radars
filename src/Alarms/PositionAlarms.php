@@ -2,8 +2,6 @@
 
 namespace App\Alarms;
 
-use App\Logger;
-
 class PositionAlarms implements AlarmInterface
 {
     public function evaluate(array $parsed): array
@@ -23,7 +21,7 @@ class PositionAlarms implements AlarmInterface
             $timeLeft = $person['time_left_s'] ?? '?';
 
             $postureAlarms = [
-                'Fall Confirmation' => ['fall_confirmed', 'danger', "Queda confirmada em ({$x}, {$y}, {$z} cm)! Tempo restante: {$timeLeft}s."],
+                'Fall Confirmation' => ['fall_confirmed', 'warning', "Queda confirmada em ({$x}, {$y}, {$z} cm)! Tempo restante: {$timeLeft}s."],
                 'Confirmed Sitting on Ground' => ['sitting_confirmed', 'warning', "Pessoa sentada no chão em ({$x}, {$y}, {$z} cm)."]
             ];
 
