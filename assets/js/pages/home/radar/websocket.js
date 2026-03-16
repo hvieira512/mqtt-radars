@@ -31,11 +31,13 @@ export function initRadarWebsocket() {
         const messages = Array.isArray(msg) ? msg : [msg];
 
         messages.forEach((data) => {
+            console.log(data);
             if (!currUID || (data.device_code && data.device_code !== currUID))
                 return;
             if (data.type === "position") updatePeople(data.people);
             if (data.type === "vitals") renderVitals(currUID, data);
-            if (data.category === "alarm") renderAlarm(data);
+            if (data.category === "alarm" || data.category === "event")
+                renderAlarm(data);
         });
     };
     ws.onerror = (e) => console.error("WS error", e);
