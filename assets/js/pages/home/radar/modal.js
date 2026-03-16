@@ -4,33 +4,7 @@ import { initRadarMap, renderRoom, destroyRadarMap } from "./map.js";
 import { renderRadarInfo } from "./info.js";
 import { initRadarWebsocket, setCurrentUID } from "./websocket.js";
 import toast from "../../../toastr.js";
-
-const mapCache = new Map();
-
-const setMapCache = (uid, data) => {
-    mapCache.set(uid, data);
-    try {
-        localStorage.setItem(`mapCache_${uid}`, JSON.stringify(data));
-    } catch (err) {
-        console.warn("Failed to write map cache to localStorage", err);
-    }
-};
-
-const getMapCache = (uid) => {
-    if (mapCache.has(uid)) return mapCache.get(uid);
-
-    try {
-        const cached = localStorage.getItem(`mapCache_${uid}`);
-        if (cached) {
-            const data = JSON.parse(cached);
-            mapCache.set(uid, data);
-            return data;
-        }
-    } catch (err) {
-        console.warn("Failed to read map cache from localStorage", err);
-    }
-    return null;
-};
+import { setMapCache, getMapCache } from "./utils.js";
 
 const fetchDevicePropWithTimeout = (uid, timeout = 3000) =>
     Promise.race([

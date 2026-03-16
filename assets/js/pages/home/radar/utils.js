@@ -102,3 +102,31 @@ export function updateCurrentPeople(count) {
         colorClasses.find((c) => count <= c.max)?.class || "secondary";
     countEl.className = `h4 fw-bold mb-0 text-${colorClass}`;
 }
+
+const mapCache = new Map();
+
+export function setMapCache(uid, data) {
+    mapCache.set(uid, data);
+    try {
+        localStorage.setItem(`mapCache_${uid}`, JSON.stringify(data));
+    } catch (err) {
+        console.warn("Failed to write map cache to localStorage", err);
+    }
+}
+
+export function getMapCache(uid) {
+    if (mapCache.has(uid)) return mapCache.get(uid);
+
+    try {
+        const cached = localStorage.getItem(`mapCache_${uid}`);
+        if (cached) {
+            const data = JSON.parse(cached);
+            mapCache.set(uid, data);
+            return data;
+        }
+    } catch (err) {
+        console.warn("Failed to read map cache from localStorage", err);
+    }
+
+    return null;
+}

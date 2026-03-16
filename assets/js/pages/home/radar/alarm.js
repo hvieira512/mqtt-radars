@@ -1,90 +1,48 @@
 import toast from "../../../toastr.js";
-import { getAreaName } from "./utils.js";
+import { getAreaName, getMapCache } from "./utils.js";
 
 export const renderAlarm = (a) => {
     if (!a) return;
 
-    let theme = "info";
-
-    switch (a.level) {
-        case "warning":
-            theme = "warning";
-            break;
-
-        case "alert":
-        case "critical":
-            theme = "danger";
-            break;
-
-        default:
-            theme = "info";
-    }
-
-    let title = "";
+    const theme = a.level || "info";
+    let title = "Alerta do sistema";
     let text = "";
+
+    const layoutData = getMapCache(a.device_code);
+
+    const regionName = layoutData
+        ? getAreaName(layoutData, a.region_id, a.alarm_type.includes("bed") ? "bed" : a.alarm_type.includes("room") ? "room" : "area")
+        : "desconhecida";
 
     if (a.category === "event") {
         const user = `Utilizador ${a.person_index ?? "?"}`;
-        const regionName = getAreaName(a.region_id) ?? "zona desconhecida";
 
-        switch (a.alarm_type) {
-            case "lying_down":
-                title = "Pessoa deitada";
-                break;
+        const eventTitles = {
+            lying_down: "Pessoa deitada",
+            room_entry: `${user} entrou na sala`,
+            room_exit: `${user} saiu da sala`,
+            area_entry: `${user} entrou na zona`,
+            area_exit: `${user} saiu da zona`,
+            bed_entry: `${user} entrou na cama monitorizada`,
+            bed_exit: `${user} saiu da cama monitorizada`,
+        };
 
-            case "room_entry":
-                title = `${user} entrou na sala`;
-                text = `Zona: ${regionName}`;
-                break;
+        title = eventTitles[a.alarm_type] ?? "Evento de posição";
 
-            case "room_exit":
-                title = `${user} saiu da sala`;
-                text = `Zona: ${regionName}`;
-                break;
-
-            case "area_entry":
-                title = `${user} entrou na zona`;
-                text = `Zona: ${regionName}`;
-                break;
-
-            case "area_exit":
-                title = `${user} saiu da zona`;
-                text = `Zona: ${regionName}`;
-                break;
-
-            case "bed_entry":
-                title = `${user} entrou na cama monitorizada`;
-                text = `Zona: ${regionName}`;
-                break;
-
-            case "bed_exit":
-                title = `${user} saiu da cama monitorizada`;
-                text = `Zona: ${regionName}`;
-                break;
-
-            default:
-                title = "Evento de posição";
-                text = `Zona: ${regionName}`;
-        }
+        if (a.alarm_type.includes("room")) text = `Sala: ${regionName}`;
+        else if (a.alarm_type.includes("area")) text = `Zona: ${regionName}`;
+        else if (a.alarm_type.includes("bed")) text = `Cama monitorizada: ${regionName}`;
     }
 
     if (a.category === "alarm") {
-        switch (a.alarm_type) {
-            case "fall_confirmed":
-                title = "Queda confirmada";
-                break;
+        const alarmTitles = {
+            fall_confirmed: "Queda confirmada",
+            sitting_confirmed: "Pessoa sentada no chão",
+        };
 
-            case "sitting_confirmed":
-                title = "Pessoa sentada no chão";
-                break;
-
-            default:
-                title = "Alerta do sistema";
-        }
-
+        title = alarmTitles[a.alarm_type] ?? "Alerta do sistema";
         text = a.message || `Dispositivo: ${a.device_code}`;
     }
 
-    console.log({ title, text });
     toast({ title, text, theme });
 };
