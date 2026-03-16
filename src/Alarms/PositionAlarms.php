@@ -22,18 +22,6 @@ class PositionAlarms implements AlarmInterface
             $z = $person['z_position_cm'] ?? '?';
             $timeLeft = $person['time_left_s'] ?? '?';
 
-            if ($regionId === 5) {
-                $alarms[] = $this->makeAlarm(
-                    'event',
-                    'test',
-                    'success',
-                    $personIndex,
-                    $regionId,
-                    'O Marcus está a trabalhar'
-                    );
-                break;
-            }
-
             $postureAlarms = [
                 'Fall Confirmation' => ['fall_confirmed', 'danger', "Queda confirmada em ({$x}, {$y}, {$z} cm)! Tempo restante: {$timeLeft}s."],
                 'Confirmed Sitting on Ground' => ['sitting_confirmed', 'warning', "Pessoa sentada no chão em ({$x}, {$y}, {$z} cm)."]
@@ -83,3 +71,4 @@ class PositionAlarms implements AlarmInterface
         return $alarm;
     }
 }
+

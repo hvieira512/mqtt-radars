@@ -1,36 +1,47 @@
 <?php
 
-$alarms = [
-    [
-        'category'     => 'alarm',
-        'alarm_type'   => 'fall_confirmed',
-        'level'        => 'danger',
-        'source'       => 'position',
-        'person_index' => 1,
-        'region_id'    => 5,
-        'device_code'  => '594B3CF100A7',
-        'message'      => 'Teste: queda simulada!'
-    ],
-    [
-        'category'     => 'event',
-        'alarm_type'   => 'room_entry',
-        'level'        => 'info',
-        'source'       => 'position',
-        'person_index' => 1,
-        'region_id'    => 5,
-        'device_code'  => '594B3CF100A7'
-    ]
-];
+$device = "594B3CF100A7";
 
-$ch = curl_init("http://127.0.0.1:8081/broadcast");
+$events = ['room_entry', 'room_exit', 'area_entry', 'area_exit'];
+$alarms = ['fall_confirmed', 'sitting_confirmed'];
 
-curl_setopt_array($ch, [
-    CURLOPT_POST           => true,
-    CURLOPT_RETURNTRANSFER => true,
-    CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-    CURLOPT_POSTFIELDS     => json_encode($alarms)
-]);
+function send($payload)
+{
+    $ch = curl_init("http://127.0.0.1:8081/broadcast");
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS     => json_encode($payload),
+    ]);
+    curl_exec($ch);
+}
 
-$response = curl_exec($ch);
+echo "Alarm simulation started...\n";
 
-echo "Test alarms sent. Response: {$response}\n";
+while (true) {
+    $payload = [];
+
+    // GERAR EVENTO
+    $payload[] = [
+        'category'    => 'event',
+        'type'        => $events[array_rand($events)],
+        'device_code' => $device,
+    ];
+
+    // 40% chance de alarme
+    if (rand(1, 5) <= 2) {
+        $payload[] = [
+            'category'    => 'alarm',
+            'type'        => $alarms[array_rand($alarms)],
+            'device_code' => $device,
+            'region_id'   => rand(1, 6),  // mantemos region_id
+        ];
+    }
+
+    send($payload);
+
+    echo "Sent: " . json_encode($payload) . "\n";
+
+    sleep(2);
+}

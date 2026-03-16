@@ -5,6 +5,7 @@ import { renderRadarInfo } from "./info.js";
 import { initRadarWebsocket, setCurrentUID } from "./websocket.js";
 import toast from "../../../toastr.js";
 import { setMapCache, getMapCache } from "./utils.js";
+import { clearGrids, initGrids } from "./grid.js";
 
 const fetchDevicePropWithTimeout = (uid, timeout = 3000) =>
     Promise.race([
@@ -21,6 +22,7 @@ const infoTab = document.getElementById("info");
 
 let currUID = null;
 
+initGrids();
 modal.addEventListener("shown.bs.modal", async (e) => {
     currUID = e.relatedTarget.dataset.id;
     if (!currUID) return;
@@ -31,6 +33,8 @@ modal.addEventListener("shown.bs.modal", async (e) => {
     renderLoading(container);
 
     let layoutData = getMapCache(currUID);
+
+    clearGrids();
 
     try {
         const res = await fetchDevicePropWithTimeout(currUID);

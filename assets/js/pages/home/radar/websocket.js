@@ -1,6 +1,7 @@
 import { updatePeople } from "./map.js";
 import { renderVitals } from "./info.js";
 import { renderAlarm } from "./alarm.js";
+import { addAlarm, addEvent } from "./grid.js";
 
 let ws = null;
 let currUID = null;
@@ -38,6 +39,8 @@ export function initRadarWebsocket() {
             if (data.type === "vitals") renderVitals(currUID, data);
             if (data.category === "alarm" || data.category === "event")
                 renderAlarm(data);
+            if (data.category === "alarm") addAlarm(data);
+            if (data.category === "event") addEvent(data);
         });
     };
     ws.onerror = (e) => console.error("WS error", e);
