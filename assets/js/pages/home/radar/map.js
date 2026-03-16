@@ -92,6 +92,7 @@ export function renderRoom(rectangle, declare_area, data) {
                 points,
                 stroke: color,
                 strokeWidth: 2.5,
+                dash: [10, 10],
                 fill: color + "33",
                 closed: true,
             }),
@@ -231,6 +232,8 @@ const POSTURE_STYLE = {
 
 export function updatePeople(people) {
     if (!stage || !peopleLayer || !transformCoords) return;
+
+    console.log(people);
 
     if (people.length === 1 && people[0].person_index === 88) {
         peopleNodes.forEach((node) => node.destroy());
