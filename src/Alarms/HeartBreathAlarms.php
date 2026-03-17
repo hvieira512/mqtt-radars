@@ -9,6 +9,7 @@ class HeartBreathAlarms implements AlarmInterface
         $alarms = [];
         $hr = $parsed['heart_rate'] ?? null;
         $br = $parsed['breathing'] ?? null;
+        $ss = $parsed['sleep_state'] ?? null;
 
         if ($hr !== null && $hr > 110) {
             $alarms[] = [
@@ -28,7 +29,7 @@ class HeartBreathAlarms implements AlarmInterface
             ];
         }
 
-        if ($br !== null && $br === 0) {
+        if ($br !== null && in_array($ss, ["Light Sleep", "Deep Sleep"]) && $br === -1) {
             $alarms[] = [
                 'category' => 'alarm',
                 'alarm_type' => 'apnea',

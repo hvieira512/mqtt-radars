@@ -15,47 +15,53 @@ class PositionAlarms implements AlarmInterface
             $lastEvent   = $person['last_event'] ?? '';
             $regionId    = $person['region_id'] ?? null;
 
-            $x = $person['x_position_dm'] ?? '?';
-            $y = $person['y_position_dm'] ?? '?';
-            $z = $person['z_position_cm'] ?? '?';
-            $timeLeft = $person['time_left_s'] ?? '?';
-
-            $postureAlarms = [
-                'Fall Confirmation' => ['fall_confirmed', 'warning', "Queda confirmada em ({$x}, {$y}, {$z} cm)! Tempo restante: {$timeLeft}s."],
-                'Confirmed Sitting on Ground' => ['sitting_confirmed', 'warning', "Pessoa sentada no chão em ({$x}, {$y}, {$z} cm)."]
+            $alarmsMap = [
+                'Fall Confirmation' => ['fall_confirmed', 'danger', "Queda confirmada"],
+                'Confirmed Sitting on Ground' => ['sitting_confirmed', 'danger', "Pessoa sentada no chão"],
             ];
 
-            if (isset($postureAlarms[$posture])) {
-                [$type, $level, $message] = $postureAlarms[$posture];
-                $alarms[] = $this->makeAlarm('alarm', $type, $level, $personIndex, $regionId, $message);
+            if (isset($alarmsMap[$posture])) {
+                [$type, $level, $message] = $alarmsMap[$posture];
+                $alarms[] = $this->makeAlarm($type, $level, $personIndex, $regionId, $message);
             }
 
-            $eventMap = [
-                'Enter Room' => 'room_entry',
-                'Leave Room' => 'room_exit',
-                'Enter Area' => 'area_entry',
-                'Leave Area' => 'area_exit'
+            $eventsMap = [
+                'Enter Room' => ['room_entry', "Entrada no quarto"],
+                'Leave Room' => ['room_exit', "Saída no quarto"],
+                'Enter Area' => ['area_entry', "Entrada na zona"],
+                'Leave Area' => ['area_exit', "Saída na zona"],
             ];
 
-            if (isset($eventMap[$lastEvent])) {
-                $alarms[] = $this->makeAlarm('event', $eventMap[$lastEvent], 'info', $personIndex, $regionId);
+            if (isset($eventsMap[$lastEvent])) {
+                [$type, $message] = $eventsMap[$lastEvent];
+                $alarms[] = $this->makeEvent($type, $personIndex, $regionId, $message);
             }
         }
 
         return $alarms;
     }
 
-    private function makeAlarm(
+    private function makeAlarm(string $type, string $level, int $personIndex, ?int $regionId, ?string $message = null): array
+    {
+        return $this->makeEntry('alarm', $type, $level, $personIndex, $regionId, $message);
+    }
+
+    private function makeEvent(string $type, int $personIndex, ?int $regionId, ?string $message = null): array
+    {
+        return $this->makeEntry('event', $type, 'info', $personIndex, $regionId, $message);
+    }
+
+    private function makeEntry(
         string $category,
-        string $alarmType,
+        string $type,
         string $level,
         int $personIndex,
         ?int $regionId,
         ?string $message = null
     ): array {
-        $alarm = [
+        $entry = [
             'category'     => $category,
-            'alarm_type'   => $alarmType,
+            'alarm_type'   => $type,
             'level'        => $level,
             'source'       => 'position',
             'person_index' => $personIndex,
@@ -63,10 +69,9 @@ class PositionAlarms implements AlarmInterface
         ];
 
         if ($message !== null) {
-            $alarm['message'] = $message;
+            $entry['message'] = $message;
         }
 
-        return $alarm;
+        return $entry;
     }
 }
-

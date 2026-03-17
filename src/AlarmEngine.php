@@ -12,10 +12,10 @@ class AlarmEngine
 {
     /** @var AlarmInterface[] */
     private static array $alarms = [
-        'vitals' => HeartBreathAlarms::class,
+        // 'vitals' => HeartBreathAlarms::class,
         'position' => PositionAlarms::class,
-        'hbstatics' => HbStaticsAlarms::class,
-        'minute_stats' => PosStaticsAlarms::class
+        // 'hbstatics' => HbStaticsAlarms::class,
+        // 'minute_stats' => PosStaticsAlarms::class
     ];
 
     public static function evaluate(array $parsed): array

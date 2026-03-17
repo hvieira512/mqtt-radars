@@ -138,6 +138,21 @@ function connectAndSubscribe(MqttClient $mqtt, ConnectionSettings $settings, str
     }, 0);
 }
 
+function broadcastToWebsocket(array $payload): void
+{
+    $ch = curl_init("http://127.0.0.1:8081/broadcast");
+
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode($payload),
+    ]);
+
+    curl_exec($ch);
+    curl_close($ch);
+}
+
 /**
  * Main loop with reconnect logic
  */
@@ -148,18 +163,33 @@ while (true) {
             connectAndSubscribe($mqtt, $settings, $topic);
         }
 
-        $mqtt->loop(true); // blocking
+        $mqtt->loop(true);
     } catch (DataTransferException $e) {
         Logger::error("MQTT connection lost: {$e->getMessage()}, reconnecting...");
-        sleep(3); // brief pause before reconnect
+
+        broadcastToWebsocket([
+            'message' => 'MQTT connection lost, attempting reconnect',
+        ]);
+
+        sleep(3);
         try {
             connectAndSubscribe($mqtt, $settings, $topic);
         } catch (\Exception $e2) {
             Logger::error("MQTT reconnect failed: {$e2->getMessage()}");
-            sleep(5); // wait longer if reconnect fails
+
+            broadcastToWebsocket([
+                'message' => 'MQTT reconnect attempt failed',
+            ]);
+
+            sleep(5);
         }
     } catch (\Exception $e) {
         Logger::error("Unexpected error in MQTT loop: {$e->getMessage()}");
+
+        broadcastToWebsocket([
+            'message' => "Unexpected MQTT error: {$e->getMessage()}",
+        ]);
+
         sleep(5);
     }
 }

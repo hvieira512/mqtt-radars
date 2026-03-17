@@ -4,24 +4,28 @@ import { getMapCache, getAreaName } from "./utils.js";
 export const renderAlarm = (a) => {
     if (!a) return;
 
-    const theme = a.category === "alarm" ? "warning" : "info";
+    let theme = a.level || "info";
 
     const layoutData = getMapCache(a.device_code);
     const regionName = layoutData
         ? getAreaName(layoutData, a.region_id ?? 0, "area")
         : "desconhecida";
 
-    // Tradução simples
     const translations = {
-        room_entry: `Entrou na sala ${regionName}`,
-        room_exit: `Saiu da sala ${regionName}`,
-        area_entry: `Entrou na zona ${regionName}`,
-        area_exit: `Saiu da zona ${regionName}`,
-        fall_confirmed: "Queda confirmada",
-        sitting_confirmed: "Pessoa sentada no chão",
+        room_entry: "Pessoa {person} entrou na sala {region}",
+        room_exit: "Pessoa {person} saiu da sala {region}",
+        area_entry: "Pessoa {person} entrou na zona {region}",
+        area_exit: "Pessoa {person} saiu da zona {region}",
+        fall_confirmed: "Queda confirmada da pessoa {person}",
+        sitting_confirmed: "Pessoa {person} sentada no chão",
     };
 
-    const text = translations[a.type] ?? a.type;
+    const personNumber = (a.person_index ?? 0) + 1;
+
+    let text = translations[a.alarm_type] ?? a.alarm_type;
+    text = text
+        .replace("{person}", personNumber)
+        .replace("{region}", regionName);
 
     toast({ text, theme });
 };

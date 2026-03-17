@@ -2,6 +2,7 @@ import { updatePeople } from "./map.js";
 import { renderVitals } from "./info.js";
 import { renderAlarm } from "./alarm.js";
 import { addAlarm, addEvent } from "./grid.js";
+import toast from "../../../toastr.js";
 
 let ws = null;
 let currUID = null;
@@ -37,10 +38,15 @@ export function initRadarWebsocket() {
                 return;
             if (data.type === "position") updatePeople(data.people);
             if (data.type === "vitals") renderVitals(currUID, data);
+
             if (data.category === "alarm" || data.category === "event")
                 renderAlarm(data);
             if (data.category === "alarm") addAlarm(data);
             if (data.category === "event") addEvent(data);
+
+            if (data.type === "status" && data.category === "mqtt") {
+                toast.error("MQTT status:", data.status, data.message);
+            }
         });
     };
     ws.onerror = (e) => console.error("WS error", e);

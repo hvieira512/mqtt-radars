@@ -1,3 +1,4 @@
+// grid.js
 import { getAreaName, getMapCache } from "./utils.js";
 
 let eventsGridApi = null;
@@ -36,13 +37,20 @@ export function initGrids() {
                     pinned: "left",
                 },
                 {
-                    field: "type",
+                    field: "alarm_type",
                     headerName: "Tipo de Evento",
                     flex: 1,
                     valueFormatter: ({ value }) =>
                         typeTranslations[value] ?? value,
                 },
+                {
+                    field: "person_index",
+                    headerName: "Pessoa",
+                    valueFormatter: ({ value }) =>
+                        value !== undefined ? value + 1 : "?",
+                },
                 { field: "region_id", headerName: "Região" },
+                { field: "message", headerName: "Detalhes" },
             ],
             ...defaultOptions,
         };
@@ -60,15 +68,21 @@ export function initGrids() {
                     pinned: "left",
                 },
                 {
-                    field: "type",
+                    field: "alarm_type",
                     headerName: "Tipo de Alarme",
                     flex: 1,
                     valueFormatter: ({ value }) =>
                         typeTranslations[value] ?? value,
                 },
+                {
+                    field: "person_index",
+                    headerName: "Pessoa",
+                    valueFormatter: ({ value }) =>
+                        value !== undefined ? value + 1 : "?",
+                },
                 { field: "region_id", headerName: "Região" },
-                { field: "cause", headerName: "Causa" },
-                { field: "comments", headerName: "Comentários" },
+                { field: "level", headerName: "Nível" },
+                { field: "message", headerName: "Comentários" },
                 {
                     headerName: "Opções",
                     cellRenderer: () => {
@@ -109,8 +123,10 @@ export function addEvent(e) {
     eventsGridApi.applyTransaction({
         add: [
             {
-                type: e.type,
+                alarm_type: e.alarm_type,
+                person_index: e.person_index,
                 region_id: regionName,
+                message: e.message ?? "",
                 timestamp: new Date().toLocaleString(),
             },
         ],
@@ -129,8 +145,11 @@ export function addAlarm(a) {
     alarmsGridApi.applyTransaction({
         add: [
             {
-                type: a.type,
+                alarm_type: a.alarm_type,
+                person_index: a.person_index,
                 region_id: regionName,
+                level: a.level,
+                message: a.message ?? "",
                 timestamp: new Date().toLocaleString(),
             },
         ],
