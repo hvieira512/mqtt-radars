@@ -28,8 +28,8 @@ class PositionAlarms implements AlarmInterface
             $eventsMap = [
                 'Enter Room' => ['room_entry', "Entrada no quarto"],
                 'Leave Room' => ['room_exit', "Saída no quarto"],
-                'Enter Area' => ['area_entry', "Entrada na zona"],
-                'Leave Area' => ['area_exit', "Saída na zona"],
+                'Enter Area' => ['area_entry', "Entrada na região"],
+                'Leave Area' => ['area_exit', "Saída na região"],
             ];
 
             if (isset($eventsMap[$lastEvent])) {

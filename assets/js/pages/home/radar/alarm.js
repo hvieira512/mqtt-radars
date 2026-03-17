@@ -14,8 +14,8 @@ export const renderAlarm = (a) => {
     const translations = {
         room_entry: "Pessoa {person} entrou na sala {region}",
         room_exit: "Pessoa {person} saiu da sala {region}",
-        area_entry: "Pessoa {person} entrou na zona {region}",
-        area_exit: "Pessoa {person} saiu da zona {region}",
+        area_entry: "Pessoa {person} entrou na região {region}",
+        area_exit: "Pessoa {person} saiu da região {region}",
         fall_confirmed: "Queda confirmada da pessoa {person}",
         sitting_confirmed: "Pessoa {person} sentada no chão",
     };

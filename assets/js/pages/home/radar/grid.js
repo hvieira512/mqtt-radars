@@ -7,8 +7,8 @@ let alarmsGridApi = null;
 const typeTranslations = {
     room_entry: "Entrou na sala",
     room_exit: "Saiu da sala",
-    area_entry: "Entrou na zona",
-    area_exit: "Saiu da zona",
+    area_entry: "Entrou na região",
+    area_exit: "Saiu da região",
     fall_confirmed: "Queda confirmada",
     sitting_confirmed: "Pessoa sentada no chão",
 };
