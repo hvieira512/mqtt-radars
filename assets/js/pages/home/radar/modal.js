@@ -1,6 +1,11 @@
 import { sendRequest } from "../../../auth.js";
 import { renderLoading, removeLoading } from "../../../utils.js";
-import { initRadarMap, renderRoom, destroyRadarMap } from "./map.js";
+import {
+    initRadarMap,
+    renderRoom,
+    destroyRadarMap,
+    resizeRadarMap,
+} from "./map.js";
 import { renderRadarInfo } from "./info.js";
 import { initRadarWebsocket, setCurrentUID } from "./websocket.js";
 import toast from "../../../toastr.js";
@@ -68,6 +73,7 @@ modal.addEventListener("shown.bs.modal", async (e) => {
         initRadarMap(container);
         renderRoom(layoutData.rectangle, layoutData.declare_area, layoutData);
         renderRadarInfo(infoTab, layoutData);
+        resizeRadarMap(container);
     }
 });
 
@@ -78,6 +84,12 @@ modal.addEventListener("hidden.bs.modal", () => {
     infoTab.innerHTML = "";
     destroyRadarMap();
     setCurrentUID(null);
+});
+
+window.addEventListener("resize", () => {
+    if (modal.classList.contains("show")) {
+        resizeRadarMap(container);
+    }
 });
 
 initRadarWebsocket();

@@ -81,23 +81,7 @@ export function initGrids() {
                         value !== undefined ? value + 1 : "?",
                 },
                 { field: "region_id", headerName: "Região" },
-                { field: "level", headerName: "Nível" },
                 { field: "message", headerName: "Comentários" },
-                {
-                    headerName: "Opções",
-                    cellRenderer: () => {
-                        const btn = document.createElement("button");
-                        btn.className = "btn btn-outline-primary btn-sm";
-                        btn.setAttribute("data-bs-toggle", "modal");
-                        btn.setAttribute(
-                            "data-bs-target",
-                            "#resolveAlarmModal",
-                        );
-                        btn.innerHTML =
-                            "<i class='fa-solid fa-pencil me-2'></i> Resolver";
-                        return btn;
-                    },
-                },
             ],
             ...defaultOptions,
         };
