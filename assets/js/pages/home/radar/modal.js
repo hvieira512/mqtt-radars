@@ -44,7 +44,7 @@ modal.addEventListener("shown.bs.modal", async (e) => {
     try {
         const res = await fetchDevicePropWithTimeout(currUID);
 
-        if (res?.code === 500) {
+        if (res?.data?.code === 500) {
             toast.warning(
                 "Sinal fraco do equipamento",
                 "Por favor verifique o equipamento",
@@ -53,7 +53,7 @@ modal.addEventListener("shown.bs.modal", async (e) => {
 
         if (res?.data) {
             layoutData = res.data;
-            setMapCache(currUID, layoutData);
+            if (layoutData?.code !== 500) setMapCache(currUID, layoutData);
         }
     } catch (err) {
         console.error(err);

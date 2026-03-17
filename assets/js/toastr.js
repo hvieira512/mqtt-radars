@@ -2,10 +2,7 @@ const baseToast = Swal.mixin({
     toast: true,
     position: "top-end",
     showConfirmButton: false,
-    timer: 8000,
     timerProgressBar: true,
-    // background: "#fff",
-    // color: "#333",
 });
 
 const themes = {

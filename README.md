@@ -77,3 +77,17 @@ switch(event)
   case 9 -> check params.alarmType
   default -> direct mapping
 ```
+
+# To Do
+
+- Criar estrutura tabela alarmes
+- Inserir alarmes na base de dados
+- Quando o modal de um radar abre, carregar o histórico de eventos e alarmes na tabela
+- Inicializar os gráficos dos sinais vitais, independentemente se vêm dados ou não
+
+# In Progress
+
+# Done
+
+- Resize do mapa quando é mexido na largura da janela do browser
+- Movimentos suaves das pessoas
