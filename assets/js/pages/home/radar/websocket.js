@@ -34,7 +34,7 @@ export function initRadarWebsocket() {
         const messages = Array.isArray(msg) ? msg : [msg];
 
         messages.forEach((data) => {
-            if (typeof data === "string") {
+            if (typeof data === "string" && data.includes("error")) {
                 toast.error("Erro de ligação ao MQTT", data);
                 return;
             }
