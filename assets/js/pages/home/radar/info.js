@@ -111,7 +111,7 @@ export function renderRadarInfo(container, data) {
                             <dd class="col-sm-7">${formatValue(data.suspected_fall_time)} × 10s</dd>
 
                             <dt class="col-sm-5 text-muted">Alarme de Saída da Cama</dt>
-                            <dd class="col-sm-7">${data.leaveAlarmSwitch === "0" ? "ON" : data.leaveAlarmSwitch === "1" ? "OFF" : "—"}</dd>
+                            <dd class="col-sm-7">${data.leaveAlarmSwitch === "0" ? "LIGADO" : data.leaveAlarmSwitch === "1" ? "DESLIGADO" : "—"}</dd>
 
                             <dt class="col-sm-5 text-muted">Tempo de Ativação da Saída</dt>
                             <dd class="col-sm-7">${formatValue(data.leaveDetectionTime)} min</dd>
@@ -120,16 +120,16 @@ export function renderRadarInfo(container, data) {
                             <dd class="col-sm-7">${formatValue(data.leaveDetectionRange)}</dd>
 
                             <dt class="col-sm-5 text-muted">Monitoramento de Ausência Longa</dt>
-                            <dd class="col-sm-7">${data.longAwaySwitch === "0" ? "ON" : data.longAwaySwitch === "1" ? "OFF" : "—"}</dd>
+                            <dd class="col-sm-7">${data.longAwaySwitch === "0" ? "LIGADO" : data.longAwaySwitch === "1" ? "DESLIGADO" : "—"}</dd>
 
                             <dt class="col-sm-5 text-muted">Alarme de Detenção</dt>
-                            <dd class="col-sm-7">${data.detentionAlarmSwitch === "0" ? "ON" : data.detentionAlarmSwitch === "1" ? "OFF" : "—"}</dd>
+                            <dd class="col-sm-7">${data.detentionAlarmSwitch === "0" ? "LIGADO" : data.detentionAlarmSwitch === "1" ? "DESLIGADO" : "—"}</dd>
 
                             <dt class="col-sm-5 text-muted">Tempo de Ativação da Detenção</dt>
                             <dd class="col-sm-7">${formatValue(data.entryDetectionTime)} min</dd>
 
                             <dt class="col-sm-5 text-muted">Sinais Vitais Fracos</dt>
-                            <dd class="col-sm-7">${data.suddenDeathSwitch === "0" ? "ON" : data.suddenDeathSwitch === "1" ? "OFF" : "—"}</dd>
+                            <dd class="col-sm-7">${data.suddenDeathSwitch === "0" ? "LIGADO" : data.suddenDeathSwitch === "1" ? "DESLIGADO" : "—"}</dd>
                         </dl>
                     </div>
                 </div>

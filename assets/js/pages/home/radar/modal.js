@@ -1,8 +1,24 @@
 import { sendRequest } from "../../../auth.js";
 import { renderLoading, removeLoading } from "../../../utils.js";
-import { initRadarMap, renderRoom, destroyRadarMap } from "./map.js";
+import {
+    initRadarMap,
+    renderRoom,
+    destroyRadarMap,
+    resizeRadarMap,
+} from "./map.js";
 import { renderRadarInfo } from "./info.js";
 import { initRadarWebsocket, setCurrentUID } from "./websocket.js";
+import toast from "../../../toastr.js";
+import { setMapCache, getMapCache } from "./utils.js";
+import { clearGrids, initGrids } from "./grid.js";
+
+const fetchDevicePropWithTimeout = (uid, timeout = 3000) =>
+    Promise.race([
+        sendRequest("deviceProp", { uid }),
+        new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Request timed out")), timeout),
+        ),
+    ]);
 
 const modal = document.getElementById("radarModal");
 const modalTitle = modal.querySelector(".modal-title");
@@ -11,30 +27,56 @@ const infoTab = document.getElementById("info");
 
 let currUID = null;
 
+initGrids();
 modal.addEventListener("shown.bs.modal", async (e) => {
     currUID = e.relatedTarget.dataset.id;
     if (!currUID) return;
 
     modal.dataset.id = currUID;
-
     setCurrentUID(currUID);
 
+    renderLoading(container);
+
+    let layoutData = getMapCache(currUID);
+
+    clearGrids();
+
     try {
-        renderLoading(container);
-        const res = await sendRequest("deviceProp", { uid: currUID });
-        if (!res?.data) return;
+        const res = await fetchDevicePropWithTimeout(currUID);
 
-        modalTitle.textContent = `Detalhes do Radar - ${currUID}`;
+        if (res?.data?.code === 500) {
+            toast.warning(
+                "Sinal fraco do equipamento",
+                "Por favor verifique o equipamento",
+            );
+        }
 
-        initRadarMap(container);
-        renderRoom(res.data.rectangle, res.data.declare_area, res.data);
-        renderRadarInfo(infoTab, res.data);
+        if (res?.data) {
+            layoutData = res.data;
+            if (layoutData?.code !== 500) setMapCache(currUID, layoutData);
+        }
     } catch (err) {
         console.error(err);
+
+        if (!layoutData) {
+            toast.error(
+                "Erro ao comunicar com o radar",
+                "Não há dados de mapa disponíveis.",
+            );
+        }
     } finally {
         removeLoading(container);
     }
+
+    if (layoutData) {
+        modalTitle.textContent = `Detalhes do Radar - ${currUID}`;
+        initRadarMap(container);
+        renderRoom(layoutData.rectangle, layoutData.declare_area, layoutData);
+        renderRadarInfo(infoTab, layoutData);
+        resizeRadarMap(container);
+    }
 });
+
 modal.addEventListener("hidden.bs.modal", () => {
     currUID = null;
     modal.dataset.id = "";
@@ -45,7 +87,9 @@ modal.addEventListener("hidden.bs.modal", () => {
 });
 
 window.addEventListener("resize", () => {
-    if (!currUID) return;
+    if (modal.classList.contains("show")) {
+        resizeRadarMap(container);
+    }
 });
 
 initRadarWebsocket();

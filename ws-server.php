@@ -17,7 +17,6 @@ use Psr\Http\Message\ServerRequestInterface;
 class RadarWebSocket implements MessageComponentInterface
 {
     private \SplObjectStorage $clients;
-    private array $subscriptions = []; // key: client resourceId, value: deviceCode
 
     public function __construct()
     {
@@ -28,23 +27,12 @@ class RadarWebSocket implements MessageComponentInterface
     {
         $this->clients->attach($conn);
         echo "[" . date('H:i:s') . "] WS connected: {$conn->resourceId}\n";
-        $conn->send(json_encode(["msg" => "Welcome"]));
     }
 
-    public function onMessage(ConnectionInterface $from, $msg)
-    {
-        $data = json_decode($msg, true);
-        if (!$data) return;
-
-        if (!empty($data['action']) && $data['action'] === 'subscribe' && !empty($data['deviceCode'])) {
-            $this->subscriptions[$from->resourceId] = $data['deviceCode'];
-            Logger::info("Client {$from->resourceId} subscribed to deviceCode: {$data['deviceCode']}");
-        }
-    }
+    public function onMessage(ConnectionInterface $from, $msg) {} // no subscription needed
 
     public function onClose(ConnectionInterface $conn)
     {
-        unset($this->subscriptions[$conn->resourceId]);
         $this->clients->detach($conn);
         Logger::info("Client {$conn->resourceId} disconnected");
     }
@@ -60,15 +48,7 @@ class RadarWebSocket implements MessageComponentInterface
         if ($this->clients->count() === 0) return;
 
         foreach ($this->clients as $client) {
-            $deviceCode = $this->subscriptions[$client->resourceId] ?? null;
-            if (!$deviceCode) continue; // client not subscribed
-
-            // Filter only data relevant to the subscribed device
-            $filtered = array_filter($data, fn($d) => ($d['device_code'] ?? null) === $deviceCode);
-
-            if (!empty($filtered)) {
-                $client->send(json_encode(array_values($filtered)));
-            }
+            $client->send(json_encode(array_values($data)));
         }
 
         Logger::info("Broadcast completed. Clients: {$this->clients->count()}");
@@ -108,4 +88,5 @@ $httpSocket = new ReactSocket('127.0.0.1:8081', $loop);
 $httpServer->listen($httpSocket);
 Logger::info("HTTP server started on http://127.0.0.1:8081/broadcast");
 
+// Keep the loop running
 $loop->run();

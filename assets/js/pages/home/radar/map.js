@@ -12,13 +12,16 @@ let stage = null;
 let layer = null;
 let peopleLayer = null;
 let transformCoords = null;
+
 const peopleNodes = new Map();
+let currentLayout = null;
 
 // ──────────────────────────────
 // Initialize radar map
 // ──────────────────────────────
 export function initRadarMap(container) {
     if (stage) stage.destroy();
+
     if (container.offsetHeight === 0) container.style.height = "400px";
 
     stage = new Konva.Stage({
@@ -28,9 +31,9 @@ export function initRadarMap(container) {
     });
 
     layer = new Konva.Layer();
-    stage.add(layer);
-
     peopleLayer = new Konva.Layer();
+
+    stage.add(layer);
     stage.add(peopleLayer);
 }
 
@@ -42,30 +45,38 @@ function createTransform(bounds, cw, ch, padding = 30) {
         (cw - 2 * padding) / bounds.width,
         (ch - 2 * padding) / bounds.height,
     );
+
     const offsetX = -bounds.minX;
     const offsetY = -bounds.minY;
+
     const scaledWidth = bounds.width * scale;
     const scaledHeight = bounds.height * scale;
+
     const centerOffsetX = (cw - scaledWidth) / 2;
     const centerOffsetY = (ch - scaledHeight) / 2;
 
     return (coords) => {
         const result = [];
+
         for (let i = 0; i < coords.length; i += 2) {
             const x = (coords[i] + offsetX) * scale + centerOffsetX;
             const y = ch - ((coords[i + 1] + offsetY) * scale + centerOffsetY);
             result.push(x, y);
         }
+
         return result;
     };
 }
 
 // ──────────────────────────────
-// Render room, areas, radar
+// Render room and areas
 // ──────────────────────────────
 export function renderRoom(rectangle, declare_area, data) {
+    currentLayout = { rectangle, declare_area, data };
+
     const rect = reorderRect(parseRectangle(rectangle));
     const bounds = getBounds(rect);
+
     const cw = stage.width();
     const ch = stage.height();
 
@@ -92,7 +103,8 @@ export function renderRoom(rectangle, declare_area, data) {
                 points,
                 stroke: color,
                 strokeWidth: 2.5,
-                fill: color + "33",
+                dash: [10, 10],
+                fill: color + "22",
                 closed: true,
             }),
         );
@@ -124,179 +136,199 @@ export function renderRoom(rectangle, declare_area, data) {
 
     // Radar center
     const [x, y] = transformCoords([0, 0]);
-    layer.add(
-        new Konva.Text({
-            x: x - 8, // center adjustment for icon
-            y: y - 8,
-            text: "\uf519", // fa-circle-info
-            fontFamily: "Font Awesome 6 Free",
-            fontStyle: "900",
-            fontSize: 16,
-            fill: "#0dcaf0", // Bootstrap info blue
-        }),
-    );
-    layer.add(
-        new Konva.Text({
-            x: x - 20, // center the text roughly under the icon
-            y: y + 10, // below the icon
-            text: "Radar",
-            fontSize: 12,
-            fontFamily: "Poppins",
-            fill: "#0dcaf0", // match the icon color
-            fontStyle: "bold",
-            align: "center",
-            width: 40,
-        }),
-    );
+
+    const radarIcon = new Konva.Text({
+        text: "\uf519",
+        fontFamily: "Font Awesome 6 Free",
+        fontStyle: "900",
+        fontSize: 16,
+        fill: "#0dcaf0",
+    });
+
+    radarIcon.offsetX(radarIcon.width() / 2);
+    radarIcon.offsetY(radarIcon.height() / 2);
+
+    radarIcon.position({ x, y });
+
+    const radarLabel = new Konva.Text({
+        x: x - 20,
+        y: y + 10,
+        text: "Radar",
+        fontSize: 12,
+        fontFamily: "Poppins",
+        fill: "#0dcaf0",
+        fontStyle: "bold",
+        align: "center",
+        width: 40,
+    });
+
+    layer.add(radarIcon);
+    layer.add(radarLabel);
 
     layer.draw();
 }
 
 // ──────────────────────────────
-// Update people positions
+// Posture styles
 // ──────────────────────────────
 const POSTURE_STYLE = {
     Initialization: {
-        icon: "\uf128", // fa-question
-        color: "#6c757d", // bootstrap secondary
+        icon: "\uf128",
+        color: "#6c757d",
         labelPT: "Inicialização",
     },
-
-    Walking: {
-        icon: "\uf554", // fa-person-walking
-        color: "#0d6efd", // bootstrap primary
-        labelPT: "A Andar",
-    },
-
+    Walking: { icon: "\uf554", color: "#0d6efd", labelPT: "A Andar" },
     "Suspected Fall": {
-        icon: "\uf071", // fa-triangle-exclamation
-        color: "#ffc107", // bootstrap warning
+        icon: "\uf071",
+        color: "#ffc107",
         labelPT: "Suspeita de Queda",
     },
-
-    Squatting: {
-        icon: "\uf6ec", // fa-person-sitting
-        color: "#fd7e14", // bootstrap orange
-        labelPT: "Agachado",
-    },
-
-    Standing: {
-        icon: "\uf183", // fa-person
-        color: "#198754", // bootstrap success
-        labelPT: "Em Pé",
-    },
-
+    Squatting: { icon: "\uf6ec", color: "#fd7e14", labelPT: "Agachado" },
+    Standing: { icon: "\uf183", color: "#198754", labelPT: "Em Pé" },
     "Fall Confirmation": {
-        icon: "\uf071", // fa-triangle-exclamation
-        color: "#dc3545", // bootstrap danger
+        icon: "\uf071",
+        color: "#dc3545",
         labelPT: "Queda Confirmada",
     },
-
-    "Lying Down": {
-        icon: "\uf236", // fa-bed
-        color: "#6f42c1", // bootstrap purple
-        labelPT: "Deitado",
-    },
-
+    "Lying Down": { icon: "\uf236", color: "#6f42c1", labelPT: "Deitado" },
     "Suspected Sitting on Ground": {
-        icon: "\uf6ec", // fa-person-sitting
-        color: "#ffc107", // bootstrap warning
+        icon: "\uf6ec",
+        color: "#ffc107",
         labelPT: "Suspeita Sentado no Chão",
     },
-
     "Confirmed Sitting on Ground": {
-        icon: "\uf6ec", // fa-person-sitting
-        color: "#fd7e14", // bootstrap orange
+        icon: "\uf6ec",
+        color: "#fd7e14",
         labelPT: "Sentado no Chão Confirmado",
     },
-
     "Sitting Up Bed": {
-        icon: "\uf236", // fa-bed
-        color: "#0dcaf0", // bootstrap info
+        icon: "\uf236",
+        color: "#0dcaf0",
         labelPT: "Sentado na Cama",
     },
-
     "Suspected Sitting Up Bed": {
-        icon: "\uf236", // fa-triangle-exclamation
-        color: "#ffc107", // bootstrap warning
+        icon: "\uf236",
+        color: "#ffc107",
         labelPT: "Suspeita Sentado na Cama",
     },
-
     "Confirmed Sitting Up Bed": {
-        icon: "\uf236", // fa-procedures
-        color: "#198754", // bootstrap success
+        icon: "\uf236",
+        color: "#198754",
         labelPT: "Sentado na Cama Confirmado",
     },
 };
 
+// ──────────────────────────────
+// Person node factory
+// ──────────────────────────────
+function createPersonNode(index, x, y, style) {
+    const group = new Konva.Group({ x, y });
+
+    const circle = new Konva.Circle({
+        radius: 10,
+        fill: "#0d6efd22",
+        stroke: style.color,
+        strokeWidth: 3,
+    });
+
+    const icon = new Konva.Text({
+        text: style.icon,
+        fontFamily: "Font Awesome 6 Free",
+        fontStyle: "900",
+        fontSize: 12,
+        fill: style.color,
+    });
+
+    icon.offsetX(icon.width() / 2);
+    icon.offsetY(icon.height() / 2);
+
+    const label = new Konva.Text({
+        x: 14,
+        y: -8,
+        text: style.labelPT,
+        fontSize: 12,
+        fontStyle: "bold",
+        fill: style.color,
+    });
+
+    group.circle = circle;
+    group.icon = icon;
+    group.label = label;
+
+    group.moveTween = null;
+
+    group.add(circle, icon, label);
+
+    peopleLayer.add(group);
+
+    return group;
+}
+
+// ──────────────────────────────
+// Update people
+// ──────────────────────────────
 export function updatePeople(people) {
     if (!stage || !peopleLayer || !transformCoords) return;
 
+    if (people.length === 1 && people[0].person_index === 88) {
+        peopleNodes.forEach((node) => node.destroy());
+        peopleNodes.clear();
+
+        updateCurrentPeople(0);
+        peopleLayer.batchDraw();
+        return;
+    }
+
+    const active = new Set();
+
     people.forEach((p) => {
         const [x, y] = transformCoords([p.x_position_dm, p.y_position_dm]);
+
         const style =
             POSTURE_STYLE[p.posture_state] ?? POSTURE_STYLE["Initialization"];
 
         let node = peopleNodes.get(p.person_index);
+        active.add(p.person_index);
 
         if (!node) {
-            const group = new Konva.Group({ x, y });
-
-            const circle = new Konva.Circle({
-                x: 0,
-                y: 0,
-                radius: 10,
-                fill: "#0d6efd22",
-                stroke: style.color,
-                strokeWidth: 3,
-            });
-
-            const icon = new Konva.Text({
-                x: -6,
-                y: -7,
-                text: style.icon,
-                fontFamily: "Font Awesome 6 Free",
-                fontStyle: "900",
-                fontSize: 12,
-                fill: style.color,
-            });
-
-            const label = new Konva.Text({
-                x: 14,
-                y: -8,
-                text: style.labelPT,
-                fontSize: 12,
-                fontStyle: "bold",
-                fill: style.color,
-            });
-
-            group.circle = circle;
-            group.icon = icon;
-            group.label = label;
-
-            group.add(circle, icon, label);
-
-            peopleLayer.add(group);
-            peopleNodes.set(p.person_index, group);
-            node = group;
-        } else {
-            const { circle, icon, label } = node;
-
-            circle.stroke(style.color);
-            icon.text(style.icon);
-            icon.fill(style.color);
-            label.text(style.labelPT);
-            label.fill(style.color);
+            node = createPersonNode(p.person_index, x, y, style);
+            peopleNodes.set(p.person_index, node);
         }
 
-        node.to({
+        const { circle, icon, label } = node;
+
+        circle.stroke(style.color);
+
+        icon.text(style.icon);
+        icon.fill(style.color);
+        icon.offsetX(icon.width() / 2);
+        icon.offsetY(icon.height() / 2);
+
+        label.text(style.labelPT);
+        label.fill(style.color);
+
+        // smooth movement only
+        if (node.moveTween) node.moveTween.destroy();
+
+        node.moveTween = new Konva.Tween({
+            node,
             x,
             y,
-            duration: 0.2,
+            duration: 0.15,
+            easing: Konva.Easings.Linear,
         });
+
+        node.moveTween.play();
     });
 
-    updateCurrentPeople(people.length);
+    peopleNodes.forEach((node, index) => {
+        if (!active.has(index)) {
+            node.destroy();
+            peopleNodes.delete(index);
+        }
+    });
+
+    updateCurrentPeople(peopleNodes.size);
     peopleLayer.batchDraw();
 }
 
@@ -314,4 +346,21 @@ export function destroyRadarMap() {
     transformCoords = null;
 
     peopleNodes.clear();
+}
+
+export function resizeRadarMap(container) {
+    if (!stage || !currentLayout) return;
+
+    stage.width(container.offsetWidth);
+    stage.height(container.offsetHeight);
+
+    layer.destroyChildren();
+
+    renderRoom(
+        currentLayout.rectangle,
+        currentLayout.declare_area,
+        currentLayout.data,
+    );
+
+    peopleLayer.batchDraw();
 }
