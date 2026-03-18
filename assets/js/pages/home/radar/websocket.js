@@ -14,6 +14,7 @@ export function setCurrentUID(uid) {
     }
 }
 
+
 export function initRadarWebsocket() {
     if (ws) return;
 
@@ -33,7 +34,11 @@ export function initRadarWebsocket() {
         const messages = Array.isArray(msg) ? msg : [msg];
 
         messages.forEach((data) => {
-            console.log(data);
+            if (typeof data === "string") {
+                toast.error("Erro de ligação ao MQTT", data);
+                return;
+            }
+
             if (!currUID || (data.device_code && data.device_code !== currUID))
                 return;
             if (data.type === "position") updatePeople(data.people);
@@ -44,9 +49,6 @@ export function initRadarWebsocket() {
             if (data.category === "alarm") addAlarm(data);
             if (data.category === "event") addEvent(data);
 
-            if (data.type === "status" && data.category === "mqtt") {
-                toast.error("MQTT status:", data.status, data.message);
-            }
         });
     };
     ws.onerror = (e) => console.error("WS error", e);
