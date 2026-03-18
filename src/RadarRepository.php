@@ -129,21 +129,40 @@ class RadarRepository
         ]);
     }
 
-    public function insertAlarmEvent(int $eventId, array $data): void
+    public function insertDetection(array $data): void
     {
-        $stmt = $this->db->prepare("
-            INSERT INTO radar_alarm_events
-            (event_id, event_code, event_name, zone_id, person_index, extra_data)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ");
+        $query = "
+            INSERT INTO radar_detections
+            (event_id, device_id, category, type, level, source, person_index, region_id, message)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ";
 
+        $stmt = $this->db->prepare($query);
         $stmt->execute([
-            $eventId,
-            $data['event_code'] ?? null,
-            $data['event_name'] ?? null,
-            $data['zone_id'] ?? null,
-            $data['person_index'] ?? null,
-            isset($data['params']) ? json_encode($data['params']) : null
+            $data['event_id'],
+            $data['device_id'],
+            $data['category'],
+            $data['type'],
+            $data['level'],
+            $data['source'],
+            $data['person_index'],
+            $data['region_id'],
+            $data['message'],
         ]);
+    }
+
+    public function resolveDetection($deviceId, $personIndex, $type): void
+    {
+        $sql = "
+            UPDATE radar_detections
+            SET resolved_at = NOW()
+            WHERE device_id = ?
+              AND type = ?
+              AND person_index <=> ?
+              AND resolved_at IS NULL
+        ";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([$deviceId, $type, $personIndex]);
     }
 }

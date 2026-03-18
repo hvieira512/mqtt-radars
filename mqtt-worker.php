@@ -87,15 +87,29 @@ function handleMqttMessage(string $message): void
         // Evaluate alarms
         $alarms = AlarmEngine::evaluate($parsed);
         foreach ($alarms as $alarm) {
-            $alarmKey = "{$deviceCode}_{$alarm['person_index']}_{$alarm['alarm_type']}";
 
-            // Only send alarm if level changed or new
+            $personIndex = $alarm['person_index'] ?? 'global';
+            $alarmKey = "{$deviceCode}_{$personIndex}_{$alarm['alarm_type']}";
+
+            // Only send alarm level changed or new
             if (($lastAlarms[$alarmKey] ?? null) !== $alarm['level']) {
                 $alarm['device_code'] = $deviceCode;
                 if (!isset($alarm['message'])) {
                     $alarm['message'] = "Evento detectado: {$alarm['alarm_type']}";
                 }
                 $broadcast[] = $alarm;
+
+                $repo->insertDetection([
+                    'event_id'    => $eventId,
+                    'device_id'   => $deviceId,
+                    'category'    => $alarm['category'],
+                    'type'        => $alarm['alarm_type'],
+                    'level'       => $alarm['level'],
+                    'source'      => $alarm['source'],
+                    'person_index' => $alarm['person_index'] ?? null,
+                    'region_id'   => $alarm['region_id'] ?? null,
+                    'message'     => $alarm['message'] ?? null,
+                ]);
 
                 // Update last alarm state
                 $lastAlarms[$alarmKey] = $alarm['level'];
@@ -188,3 +202,4 @@ while (true) {
         sleep(5);
     }
 }
+
