@@ -28,7 +28,10 @@ header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit(); }
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
 
 /* ---------------- CONFIG ---------------- */
 $config = [
@@ -187,7 +190,11 @@ function generateHeaders($credentials, $params)
 {
     $timestamp = time();
     $serialized = '';
-    if ($params) { $flat = flattenParams($params); sort($flat); $serialized = implode('#', $flat) . '#'; }
+    if ($params) {
+        $flat = flattenParams($params);
+        sort($flat);
+        $serialized = implode('#', $flat) . '#';
+    }
 
     $signature = strtoupper(sha1($credentials['appSecret'] . "#$timestamp#$serialized"));
     console_log("Generated signature: $signature");
@@ -201,24 +208,45 @@ function generateHeaders($credentials, $params)
     ];
 }
 
+function apiRequest($config, $endpoint, $params = [])
+{
+    $credentials = getCredentials($config);
+
+    $url = $config['api_base'] . $endpoint;
+    if ($params) $url .= '?' . http_build_query($params);
+
+    $headers = generateHeaders($credentials, $params);
+    $response = httpRequest($url, $headers);
+    $decoded = json_decode($response, true);
+
+    // Check for invalid token or unauthorized response
+    if (
+        isset($decoded['error']) && in_array($decoded['error'], ['invalid_token', 'unauthorized'])
+        || http_response_code() === 401
+    ) {
+        console_log("Access token invalid, refreshing and retrying...");
+
+        // Refresh token or full login
+        $credentials = refreshToken($config, $credentials);
+
+        // Re-generate headers and retry
+        $headers = generateHeaders($credentials, $params);
+        $response = httpRequest($url, $headers);
+    }
+
+    return $response;
+}
+
 /* ---------------- PROXY ---------------- */
 $endpoint = $_GET['endpoint'] ?? null;
 if (!$endpoint) jsonError('Missing endpoint', 400);
 
 console_log("Endpoint called: $endpoint");
 
-$params = $_GET; unset($params['endpoint']);
+$params = $_GET;
+unset($params['endpoint']);
 console_log("Params: " . json_encode($params));
 
-$credentials = getCredentials($config);
+$response = apiRequest($config, $endpoint, $params);
 
-$url = $config['api_base'] . $endpoint;
-if ($params) $url .= '?' . http_build_query($params);
-
-console_log("Final URL: $url");
-
-$headers = generateHeaders($credentials, $params);
-$response = httpRequest($url, $headers);
-
-$decoded = json_decode($response, true);
-echo json_encode(['data' => $decoded['data'] ?? $decoded ?? $response]);
+echo $response;

@@ -9,15 +9,27 @@ use App\EventTypes;
 use PhpMqtt\Client\MqttClient;
 use PhpMqtt\Client\ConnectionSettings;
 use PhpMqtt\Client\Exceptions\DataTransferException;
-use App\RadarRepository;
 use App\Logger;
 use App\Parsers\PositionParser;
 use App\Parsers\HeartBreathParser;
 use App\Parsers\HbStaticsParser;
 use App\Parsers\PosStaticsParser;
+use App\Repositories\DetectionRepository;
+use App\Repositories\DeviceRepository;
+use App\Repositories\EventRepository;
+use App\Repositories\PositionRepository;
+use App\Repositories\StatsRepository;
+use App\Repositories\VitalsRepository;
 
-$repo = new RadarRepository();
+// Repositories
+$eventsRepo    = new EventRepository();
+$detRepo       = new DetectionRepository();
+$deviceRepo    = new DeviceRepository();
+$positionRepo  = new PositionRepository();
+$statsRepo     = new StatsRepository();
+$vitalsRepo    = new VitalsRepository();
 
+// MQTT setup
 $server   = $_ENV['MQTT_SERVER'] ?? '127.0.0.1';
 $port     = $_ENV['MQTT_PORT'] ?? 1883;
 $username = $_ENV['MQTT_USERNAME'] ?? '';
@@ -31,22 +43,38 @@ $settings = (new ConnectionSettings())
 
 $mqtt = new MqttClient($server, (int)$port, 'php-radar-worker');
 
+// Parsers
 $parsers = [
-    'position' => new PositionParser(),
+    'position'    => new PositionParser(),
     'heartbreath' => new HeartBreathParser(),
-    'hbstatics' => new HbStaticsParser(),
-    'posstatics' => new PosStaticsParser(),
+    'hbstatics'   => new HbStaticsParser(),
+    'posstatics'  => new PosStaticsParser(),
 ];
 
 // Track last alarms per person to prevent repeated alerts
 $lastAlarms = [];
 
 /**
+ * Broadcast helper
+ */
+function broadcastToWebsocket(array $payload): void
+{
+    $ch = curl_init("http://127.0.0.1:8081/broadcast");
+    curl_setopt_array($ch, [
+        CURLOPT_POST           => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS     => json_encode($payload),
+    ]);
+    curl_exec($ch);
+}
+
+/**
  * Handles incoming MQTT messages
  */
 function handleMqttMessage(string $message): void
 {
-    global $parsers, $repo, $lastAlarms;
+    global $parsers, $lastAlarms, $detRepo, $deviceRepo, $positionRepo, $statsRepo, $vitalsRepo, $eventsRepo;
 
     $data = json_decode($message, true);
     if (!$data || !isset($data['payload'])) return;
@@ -55,7 +83,7 @@ function handleMqttMessage(string $message): void
     $deviceCode = $payload['deviceCode'] ?? null;
     if (!$deviceCode) return;
 
-    $deviceId = $repo->getDeviceId($deviceCode);
+    $deviceId = $deviceRepo->getDeviceId($deviceCode);
     $broadcast = [];
 
     foreach ($parsers as $key => $parser) {
@@ -68,50 +96,51 @@ function handleMqttMessage(string $message): void
 
         // Save event
         $eventTypeId = EventTypes::fromString($parsed['type']);
-        $eventId = $repo->createEvent($deviceId, $eventTypeId);
+        $eventId = $eventsRepo->createEvent($deviceId, $eventTypeId);
+
+        // Save based on type
         switch ($parsed['type']) {
             case 'position':
-                $repo->insertPosition($eventId, $parsed['people']);
+                $positionRepo->insertPosition($eventId, $parsed['people']);
                 break;
             case 'vitals':
-                $repo->insertVitals($eventId, $parsed);
+                $vitalsRepo->insertVitals($eventId, $parsed);
                 break;
             case 'minute_stats':
-                $repo->insertMinuteStats($eventId, $parsed);
+                $statsRepo->insertMinuteStats($eventId, $parsed);
                 break;
             case 'hbstatics':
-                $repo->insertHbStatics($eventId, $parsed);
+                $statsRepo->insertSleepStats($eventId, $parsed);
                 break;
         }
 
         // Evaluate alarms
         $alarms = AlarmEngine::evaluate($parsed);
         foreach ($alarms as $alarm) {
-
             $personIndex = $alarm['person_index'] ?? 'global';
             $alarmKey = "{$deviceCode}_{$personIndex}_{$alarm['alarm_type']}";
 
-            // Only send alarm level changed or new
             if (($lastAlarms[$alarmKey] ?? null) !== $alarm['level']) {
                 $alarm['device_code'] = $deviceCode;
                 if (!isset($alarm['message'])) {
                     $alarm['message'] = "Evento detectado: {$alarm['alarm_type']}";
                 }
+
                 $broadcast[] = $alarm;
 
-                $repo->insertDetection([
-                    'event_id'    => $eventId,
-                    'device_id'   => $deviceId,
-                    'category'    => $alarm['category'],
-                    'type'        => $alarm['alarm_type'],
-                    'level'       => $alarm['level'],
-                    'source'      => $alarm['source'],
+                // Save detection
+                $detRepo->insertDetection([
+                    'event_id'     => $eventId,
+                    'device_id'    => $deviceId,
+                    'category'     => $alarm['category'],
+                    'type'         => $alarm['alarm_type'],
+                    'level'        => $alarm['level'],
+                    'source'       => $alarm['source'],
                     'person_index' => $alarm['person_index'] ?? null,
-                    'region_id'   => $alarm['region_id'] ?? null,
-                    'message'     => $alarm['message'] ?? null,
+                    'region_id'    => $alarm['region_id'] ?? null,
+                    'message'      => $alarm['message'],
                 ]);
 
-                // Update last alarm state
                 $lastAlarms[$alarmKey] = $alarm['level'];
             }
         }
@@ -139,46 +168,37 @@ function handleMqttMessage(string $message): void
     }
 
     if (!empty($broadcast)) {
-        $ch = curl_init("http://127.0.0.1:8081/broadcast");
-        curl_setopt_array($ch, [
-            CURLOPT_POST => true,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-            CURLOPT_POSTFIELDS => json_encode($broadcast),
-        ]);
-        curl_exec($ch);
+        broadcastToWebsocket($broadcast);
     }
 }
 
 /**
- * Connects and subscribes to MQTT
+ * Connect and subscribe to MQTT
  */
 function connectAndSubscribe(MqttClient $mqtt, ConnectionSettings $settings, string $topic)
 {
-    $mqtt->connect($settings, true);
-    Logger::info("MQTT connected");
+    try {
+        $mqtt->connect($settings, true);
+        Logger::info("MQTT connected");
 
-    $mqtt->subscribe($topic, function ($topic, $message) {
-        handleMqttMessage($message);
-    }, 0);
-}
+        $mqtt->subscribe($topic, function ($topic, $message) {
+            handleMqttMessage($message);
+        }, 1);
 
-/**
- * Broadcast helper
- */
-function broadcastToWebsocket(array $payload): void
-{
-    $ch = curl_init("http://127.0.0.1:8081/broadcast");
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-        CURLOPT_POSTFIELDS => json_encode($payload),
-    ]);
-    curl_exec($ch);
+        broadcastToWebsocket([
+            'message'  => 'MQTT broker connected'
+        ]);
+    } catch (\Exception $e) {
+        Logger::error("MQTT connect failed: {$e->getMessage()}");
+        broadcastToWebsocket([
+            'error'  => "Failed to connect to MQTT broker: {$e->getMessage()}"
+        ]);
+        throw $e;
+    }
 }
 
 Logger::info("MQTT Worker started");
+
 while (true) {
     try {
         if (!$mqtt->isConnected()) {
@@ -187,19 +207,15 @@ while (true) {
         $mqtt->loop(true);
     } catch (DataTransferException $e) {
         Logger::error("MQTT connection lost: {$e->getMessage()}, reconnecting...");
-        broadcastToWebsocket(['message' => 'MQTT connection lost, attempting reconnect']);
+        broadcastToWebsocket([
+            'error' => "MQTT connection lost: {$e->getMessage()}, reconnecting..."
+        ]);
         sleep(3);
-        try {
-            connectAndSubscribe($mqtt, $settings, $topic);
-        } catch (\Exception $e2) {
-            Logger::error("MQTT reconnect failed: {$e2->getMessage()}");
-            broadcastToWebsocket(['message' => 'MQTT reconnect attempt failed']);
-            sleep(5);
-        }
     } catch (\Exception $e) {
         Logger::error("Unexpected MQTT loop error: {$e->getMessage()}");
-        broadcastToWebsocket(['message' => "Unexpected MQTT error: {$e->getMessage()}"]);
+        broadcastToWebsocket([
+            'error' => "Unexpected MQTT error: {$e->getMessage()}"
+        ]);
         sleep(5);
     }
 }
-
