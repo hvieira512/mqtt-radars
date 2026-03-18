@@ -39,7 +39,6 @@ $config = [
     'app_secret' => getenv('SECRET'),
     'username' => getenv('HOBACARE_USERNAME'),
     'password' => getenv('HOBACARE_PASSWORD'),
-    'login_url' => getenv('LOGIN_URL'),
     'api_base' => getenv('BASE_URL'),
     'credentials_file' => __DIR__ . '/credentials.json'
 ];
@@ -85,7 +84,8 @@ function login($config)
         'grantType' => 'password'
     ];
 
-    $response = httpRequest($config['login_url'], ['Content-Type: application/json'], $payload);
+    $login_url = "{$config['api_base']}/login";
+    $response = httpRequest($login_url, ['Content-Type: application/json'], $payload);
     $json = json_decode($response, true);
 
     if (!isset($json['data']['access_token'])) jsonError('Login failed');

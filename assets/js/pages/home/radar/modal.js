@@ -14,7 +14,7 @@ import { clearGrids, initGrids } from "./grid.js";
 
 const fetchDevicePropWithTimeout = (uid, timeout = 3000) =>
     Promise.race([
-        sendRequest("deviceProp", { uid }),
+        sendRequest("thirdparty/v2/deviceProp", { uid }),
         new Promise((_, reject) =>
             setTimeout(() => reject(new Error("Request timed out")), timeout),
         ),

@@ -46,7 +46,7 @@ const renderDeviceCard = ({ uid, eqt_name, modelNumber, isOnline }) => `
 
 // Fetch devices
 const fetchDevices = async () => {
-    const { data } = await sendRequest("getDeviceInfo");
+    const { data } = await sendRequest("thirdparty/v2/getDeviceInfo");
     return data || [];
 };
 
