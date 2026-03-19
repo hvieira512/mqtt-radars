@@ -1,68 +1,100 @@
-const SLEEP_STATUS_MAP = {
-    1: "Light sleep",
-    2: "Awake",
-    3: "Deep sleep",
-    7: "REM",
+const SLEEP_STATUS = {
+    1: { label: "Sono leve", color: 0x80c0ff },
+    2: { label: "Acordado", color: 0xc0c0c0 },
+    3: { label: "Sono profundo", color: 0x003366 },
+    7: { label: "REM", color: 0xff9933 },
 };
 
-const SLEEP_STATUS_COLOR = {
-    1: am5.color(0x80c0ff), // Light sleep - blue
-    2: am5.color(0xc0c0c0), // Awake - gray
-    3: am5.color(0x003366), // Deep sleep - dark blue
-    7: am5.color(0xff9933), // REM - orange
+const STATUS_TO_Y = {
+    2: 3, // Acordado     → top
+    1: 2, // Light     → middle-upper
+    7: 1, // REM       → middle-lower
+    3: 0, // Deep      → bottom
 };
 
-let sleepChartRoot;
-let sleepSeries;
+let chartComponents = null;
+let sleepSeries = null;
 
-export const initSleepChart = () => {
-    // Initialize root
-    sleepChartRoot = am5.Root.new("sleep-chart");
-    sleepChartRoot._logo?.dispose();
+function createSleepChart() {
+    const root = am5.Root.new("sleep-chart");
+    root._logo?.dispose();
 
-    // Create chart
-    const chart = sleepChartRoot.container.children.push(
-        am5xy.XYChart.new(sleepChartRoot, {
+    const chart = root.container.children.push(
+        am5xy.XYChart.new(root, {
             panX: false,
             panY: false,
             wheelX: "none",
             wheelY: "none",
-            layout: sleepChartRoot.verticalLayout,
+            layout: root.verticalLayout,
         }),
     );
 
-    // X-axis: time
+    // ─── X Axis (time) ───────────────────────────────────────
     const xAxis = chart.xAxes.push(
-        am5xy.DateAxis.new(sleepChartRoot, {
+        am5xy.DateAxis.new(root, {
             baseInterval: { timeUnit: "minute", count: 1 },
-            renderer: am5xy.AxisRendererX.new(sleepChartRoot, {}),
-            tooltip: am5.Tooltip.new(sleepChartRoot, {}),
+            renderer: am5xy.AxisRendererX.new(root, {}),
+            tooltip: am5.Tooltip.new(root, {}),
         }),
     );
 
-    // Y-axis: numeric stages
+    // ─── Y Axis (sleep stages) ───────────────────────────────
     const yAxis = chart.yAxes.push(
-        am5xy.ValueAxis.new(sleepChartRoot, {
+        am5xy.ValueAxis.new(root, {
             min: 0,
-            max: 4, // 4 stages: 1=Light,2=Awake,3=Deep,7=REM
+            max: 4,
             strictMinMax: true,
-            renderer: am5xy.AxisRendererY.new(sleepChartRoot, {}),
+            renderer: am5xy.AxisRendererY.new(root, {
+                minGridDistance: 40,
+                strokeOpacity: 0.15,
+            }),
         }),
     );
 
-    // Column series
+    // Hide default numeric labels
+    yAxis.get("renderer").labels.template.set("forceHidden", true);
+
+    // Add stage names as custom labels (centered in each band)
+    const stageLabels = [
+        { y: 0.5, text: "Sono profundo", color: 0x002244 },
+        { y: 1.5, text: "REM", color: 0xcc7700 },
+        { y: 2.5, text: "Sono leve", color: 0x4070cc },
+        { y: 3.5, text: "Acordado", color: 0x555555 },
+    ];
+
+    stageLabels.forEach(({ y, text, color }) => {
+        const rangeDataItem = yAxis.makeDataItem({ value: y });
+        const range = yAxis.createAxisRange(rangeDataItem);
+
+        range.get("label").setAll({
+            text: text,
+            fontSize: "0.95em",
+            fontWeight: "500",
+            fill: am5.color(color),
+            centerY: am5.p50,
+            textAlign: "right",
+            paddingRight: 12,
+            forceHidden: false,
+        });
+
+        // No extra grid/tick clutter
+        range.get("grid").set("forceHidden", true);
+        range.get("tick").set("forceHidden", true);
+    });
+
+    // ─── Column Series ───────────────────────────────────────
     sleepSeries = chart.series.push(
-        am5xy.ColumnSeries.new(sleepChartRoot, {
+        am5xy.ColumnSeries.new(root, {
             xAxis: xAxis,
             yAxis: yAxis,
             openValueYField: "y1",
             valueYField: "y2",
             openValueXField: "startTime",
             valueXField: "endTime",
+            categoryXField: null, // not needed
         }),
     );
 
-    // Column styling
     sleepSeries.columns.template.setAll({
         strokeOpacity: 0,
         cornerRadiusTL: 0,
@@ -71,39 +103,54 @@ export const initSleepChart = () => {
         cornerRadiusBR: 0,
     });
 
-    // Safe fill adapter
-    sleepSeries.columns.template.adapters.add("fill", (fill, target) => {
-        const dataItem = target.dataItem;
-        return dataItem?.dataContext?.fill ?? fill;
+    // Color from data
+    sleepSeries.columns.template.adapters.add("fill", function (fill, target) {
+        return target.dataItem?.dataContext?.fill ?? fill;
     });
 
-    // Safe stroke adapter
-    sleepSeries.columns.template.adapters.add("stroke", (stroke, target) => {
-        const dataItem = target.dataItem;
-        return dataItem?.dataContext?.fill ?? stroke;
-    });
+    sleepSeries.columns.template.adapters.add(
+        "stroke",
+        function (stroke, target) {
+            return target.dataItem?.dataContext?.fill ?? stroke;
+        },
+    );
 
-    // Store references for later updates
-    sleepChartRoot = { chart, xAxis, yAxis };
-};
+    // Store for updates
+    chartComponents = { root, chart, xAxis, yAxis };
 
-// Update chart with API data
-export const updateSleepChart = (data) => {
-    if (!sleepSeries) return;
+    return chartComponents;
+}
 
-    // Map status to numeric Y-values
-    const STATUS_Y = { 2: 3, 1: 2, 7: 1, 3: 0 }; // Top to bottom
+export function initSleepChart() {
+    if (chartComponents) return; // already initialized
+    createSleepChart();
+}
+
+export function updateSleepChart(data) {
+    if (!sleepSeries || !data?.length) return;
 
     const chartData = data.map((item) => {
-        const yValue = STATUS_Y[item.status] ?? 0;
+        const status = item.status;
+        const y = STATUS_TO_Y[status] ?? 0;
+        const stage = SLEEP_STATUS[status] || { color: 0x999999 };
+
         return {
             startTime: new Date(item.startTime).getTime(),
             endTime: new Date(item.endTime).getTime(),
-            y1: yValue, // bottom of column
-            y2: yValue + 1, // top of column
-            fill: SLEEP_STATUS_COLOR[item.status] || am5.color(0x999999),
+            y1: y,
+            y2: y + 1,
+            fill: am5.color(stage.color),
         };
     });
 
     sleepSeries.data.setAll(chartData);
-};
+}
+
+// Optional: dispose on page unload / component destroy
+export function disposeSleepChart() {
+    if (chartComponents?.root) {
+        chartComponents.root.dispose();
+        chartComponents = null;
+        sleepSeries = null;
+    }
+}
