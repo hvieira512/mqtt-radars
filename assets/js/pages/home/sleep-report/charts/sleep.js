@@ -1,3 +1,5 @@
+// sleep-chart.js
+
 const SLEEP_STATUS = {
     1: { label: "Sono leve", color: 0x80c0ff },
     2: { label: "Acordado", color: 0xc0c0c0 },
@@ -6,10 +8,10 @@ const SLEEP_STATUS = {
 };
 
 const STATUS_TO_Y = {
-    2: 3, // Acordado     → top
-    1: 2, // Light     → middle-upper
-    7: 1, // REM       → middle-lower
-    3: 0, // Deep      → bottom
+    2: 3, // Acordado → top
+    1: 2, // Sono leve → middle-upper
+    7: 1, // REM → middle-lower
+    3: 0, // Sono profundo → bottom
 };
 
 let chartComponents = null;
@@ -33,10 +35,35 @@ function createSleepChart() {
     const xAxis = chart.xAxes.push(
         am5xy.DateAxis.new(root, {
             baseInterval: { timeUnit: "minute", count: 1 },
-            renderer: am5xy.AxisRendererX.new(root, {}),
-            tooltip: am5.Tooltip.new(root, {}),
+            renderer: am5xy.AxisRendererX.new(root, {
+                minGridDistance: 50, // prevent too dense labels
+            }),
+            tooltip: am5.Tooltip.new(root, {
+                labelText: "{valueX.formatDate('HH:mm')}", // axis tooltip shows time
+            }),
         }),
     );
+
+    // Make X-axis labels visible and nicely formatted
+    xAxis.get("renderer").labels.template.setAll({
+        fontSize: "0.85em",
+        rotation: -45,
+        centerY: am5.p50,
+        textAlign: "right",
+        paddingRight: 8,
+        paddingLeft: 8,
+        maxPosition: 0.98, // prevent last label cutoff
+        minPosition: 0.02,
+    });
+
+    // Format labels: e.g. 22:30, 23:00, etc.
+    xAxis
+        .get("renderer")
+        .labels.template.adapters.add("text", function (text, target) {
+            return target.dataItem?.value
+                ? am5.time.formatDate(new Date(target.dataItem.value), "HH:mm")
+                : text;
+        });
 
     // ─── Y Axis (sleep stages) ───────────────────────────────
     const yAxis = chart.yAxes.push(
@@ -51,10 +78,8 @@ function createSleepChart() {
         }),
     );
 
-    // Hide default numeric labels
     yAxis.get("renderer").labels.template.set("forceHidden", true);
 
-    // Add stage names as custom labels (centered in each band)
     const stageLabels = [
         { y: 0.5, text: "Sono profundo", color: 0x002244 },
         { y: 1.5, text: "REM", color: 0xcc7700 },
@@ -63,9 +88,7 @@ function createSleepChart() {
     ];
 
     stageLabels.forEach(({ y, text, color }) => {
-        const rangeDataItem = yAxis.makeDataItem({ value: y });
-        const range = yAxis.createAxisRange(rangeDataItem);
-
+        const range = yAxis.createAxisRange(yAxis.makeDataItem({ value: y }));
         range.get("label").setAll({
             text: text,
             fontSize: "0.95em",
@@ -76,8 +99,6 @@ function createSleepChart() {
             paddingRight: 12,
             forceHidden: false,
         });
-
-        // No extra grid/tick clutter
         range.get("grid").set("forceHidden", true);
         range.get("tick").set("forceHidden", true);
     });
@@ -91,7 +112,6 @@ function createSleepChart() {
             valueYField: "y2",
             openValueXField: "startTime",
             valueXField: "endTime",
-            categoryXField: null, // not needed
         }),
     );
 
@@ -101,9 +121,44 @@ function createSleepChart() {
         cornerRadiusTR: 0,
         cornerRadiusBL: 0,
         cornerRadiusBR: 0,
+        tooltipY: am5.percent(50), // center tooltip vertically
     });
 
-    // Color from data
+    sleepSeries.columns.template.set("tooltipText", "");
+
+    sleepSeries.columns.template.adapters.add(
+        "tooltipText",
+        function (_, target) {
+            const dc = target.dataItem?.dataContext;
+            if (!dc) return "";
+
+            const start = new Date(dc.startTime);
+            const end = new Date(dc.endTime);
+
+            const formatTime = (date) => {
+                const hours = String(date.getHours()).padStart(2, "0");
+                const minutes = String(date.getMinutes()).padStart(2, "0");
+                return `${hours}:${minutes}`;
+            };
+
+            const startStr = formatTime(start);
+            const endStr = formatTime(end);
+
+            const durationMin = Math.round((dc.endTime - dc.startTime) / 60000);
+
+            const hours = Math.floor(durationMin / 60);
+            const minutes = durationMin % 60;
+
+            const durationStr =
+                hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
+
+            const status = SLEEP_STATUS[dc.status]?.label || "Desconhecido";
+
+            return `${startStr} - ${endStr} | ${status} - ${durationStr}`;
+        },
+    );
+
+    // Colors from data
     sleepSeries.columns.template.adapters.add("fill", function (fill, target) {
         return target.dataItem?.dataContext?.fill ?? fill;
     });
@@ -115,14 +170,12 @@ function createSleepChart() {
         },
     );
 
-    // Store for updates
     chartComponents = { root, chart, xAxis, yAxis };
-
     return chartComponents;
 }
 
 export function initSleepChart() {
-    if (chartComponents) return; // already initialized
+    if (chartComponents) return;
     createSleepChart();
 }
 
@@ -135,6 +188,7 @@ export function updateSleepChart(data) {
         const stage = SLEEP_STATUS[status] || { color: 0x999999 };
 
         return {
+            status: status, // needed for tooltip
             startTime: new Date(item.startTime).getTime(),
             endTime: new Date(item.endTime).getTime(),
             y1: y,
@@ -144,9 +198,11 @@ export function updateSleepChart(data) {
     });
 
     sleepSeries.data.setAll(chartData);
+
+    // Optional: zoom to data range if needed
+    // chartComponents.chart.zoomToIndexes(0, chartData.length - 1, false);
 }
 
-// Optional: dispose on page unload / component destroy
 export function disposeSleepChart() {
     if (chartComponents?.root) {
         chartComponents.root.dispose();
