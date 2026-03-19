@@ -7,7 +7,7 @@ import {
     updateHealthScoreChart,
 } from "./charts/health-score.js";
 import { initHeartRateChart } from "./charts/heart-rate.js";
-import { initSleepChart } from "./charts/sleep.js";
+import { initSleepChart, updateSleepChart } from "./charts/sleep.js";
 
 const modal = document.getElementById("sleepReportModal");
 const container = modal.querySelector(".modal-body");
@@ -31,8 +31,9 @@ export const initSleepReportModal = () => {
             const params = { uid: id, date: dateString, lang: "en_US" };
             const { data } = await getRequest("radar/monitor/report", params);
 
-            console.log("Updating health score chart:", data);
+            console.log(data);
             updateHealthScoreChart(data.score, data.scoreLabel);
+            updateSleepChart(data.statisticalData);
         } catch (error) {
             console.error(error);
             toast.error("Erro ao carregar o relatório de sono");
