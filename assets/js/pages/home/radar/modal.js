@@ -1,4 +1,4 @@
-import { sendRequest } from "../../../auth.js";
+import { getRequest } from "../../../auth.js";
 import { renderLoading, removeLoading } from "../../../utils.js";
 import {
     initRadarMap,
@@ -14,7 +14,7 @@ import { clearGrids, initGrids } from "./grid.js";
 
 const fetchDevicePropWithTimeout = (uid, timeout = 3000) =>
     Promise.race([
-        sendRequest("thirdparty/v2/deviceProp", { uid }),
+        getRequest("thirdparty/v2/deviceProp", { uid }),
         new Promise((_, reject) =>
             setTimeout(() => reject(new Error("Request timed out")), timeout),
         ),
@@ -24,6 +24,7 @@ const modal = document.getElementById("radarModal");
 const modalTitle = modal.querySelector(".modal-title");
 const container = document.getElementById("radar-map");
 const infoTab = document.getElementById("info");
+const sleepReportBtn = document.getElementById("sleep-report-btn");
 
 let currUID = null;
 
@@ -33,6 +34,7 @@ modal.addEventListener("shown.bs.modal", async (e) => {
     if (!currUID) return;
 
     modal.dataset.id = currUID;
+    sleepReportBtn.dataset.id = currUID;
     setCurrentUID(currUID);
 
     renderLoading(container);

@@ -212,6 +212,7 @@ export function renderVitals(uid, vitals) {
     // Initialize Heart Rate chart
     if (!chartHR) {
         const heartRateGraph = am5.Root.new("chart-heart-rate");
+        heartRateGraph._logo?.dispose();
         heartRateGraph.setThemes([am5themes_Animated.new(heartRateGraph)]);
         chartHR = heartRateGraph.container.children.push(
             am5xy.XYChart.new(heartRateGraph, {
@@ -262,6 +263,7 @@ export function renderVitals(uid, vitals) {
     // Initialize Breath Rate chart
     if (!chartBR) {
         const breathRateGraph = am5.Root.new("chart-breath-rate");
+        breathRateGraph._logo?.dispose();
         breathRateGraph.setThemes([am5themes_Animated.new(breathRateGraph)]);
         chartBR = breathRateGraph.container.children.push(
             am5xy.XYChart.new(breathRateGraph, {

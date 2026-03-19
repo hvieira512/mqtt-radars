@@ -1,6 +1,7 @@
-import { sendRequest } from "../../auth.js";
+import { getRequest } from "../../auth.js";
 import { initTooltips, removeLoading, renderLoading } from "../../utils.js";
 import "./radar/modal.js";
+import { initSleepReportModal } from "./sleep-report/main.js";
 
 const MODEL_MAP = {
     1: "HC1",
@@ -46,7 +47,7 @@ const renderDeviceCard = ({ uid, eqt_name, modelNumber, isOnline }) => `
 
 // Fetch devices
 const fetchDevices = async () => {
-    const { data } = await sendRequest("thirdparty/v2/getDeviceInfo");
+    const { data } = await getRequest("thirdparty/v2/getDeviceInfo");
     return data || [];
 };
 
@@ -78,3 +79,4 @@ const renderDevicesList = async () => {
 };
 
 await renderDevicesList();
+initSleepReportModal();

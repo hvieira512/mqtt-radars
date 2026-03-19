@@ -9,24 +9,43 @@ export const initTooltips = () => {
     });
 };
 
-export const renderLoading = (el) => {
-    const element = typeof el === "string" ? document.querySelector(el) : el;
-    element.dataset.originalContent = el.innerHTML;
+// Renders a loading spinner inside a container without destroying its content
+export const renderLoading = (container) => {
+    const el =
+        typeof container === "string"
+            ? document.querySelector(container)
+            : container;
 
-    element.innerHTML = `
-        <div class="d-flex justify-content-center align-items-center py-4">
-            <i class="fa-solid fa-spinner fa-spin fa-2x text-primary"></i>
-        </div>
-    `;
+    // Skip if already showing
+    if (el.querySelector(".loading-overlay")) return;
+
+    const overlay = document.createElement("div");
+    overlay.className =
+        "loading-overlay d-flex justify-content-center align-items-center";
+    overlay.style.position = "absolute";
+    overlay.style.top = "0";
+    overlay.style.left = "0";
+    overlay.style.width = "100%";
+    overlay.style.height = "100%";
+    overlay.style.background = "rgba(255, 255, 255, 0.7)";
+    overlay.style.zIndex = "999";
+    overlay.innerHTML = `<i class="fa-solid fa-spinner fa-spin fa-2x text-primary"></i>`;
+
+    // Make container relative if not already
+    const currentPosition = getComputedStyle(el).position;
+    if (currentPosition === "static") el.style.position = "relative";
+
+    el.appendChild(overlay);
 };
 
-export const removeLoading = (element) => {
+// Removes the loading overlay safely
+export const removeLoading = (container) => {
     const el =
-        typeof element === "string" ? document.querySelector(element) : element;
-    if (el.dataset.originalContent) {
-        el.innerHTML = el.dataset.originalContent;
-        delete el.dataset.originalContent;
-    }
+        typeof container === "string"
+            ? document.querySelector(container)
+            : container;
+    const overlay = el.querySelector(".loading-overlay");
+    if (overlay) overlay.remove();
 };
 
 export const buttonLoading = (buttonEl) => {

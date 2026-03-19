@@ -12,7 +12,7 @@ $metaId = $metaId ?? null;
 ?>
 
 <div class="card shadow-sm" <?= $id ? "id='$id'" : '' ?>>
-    <div class="card-body">
+    <div class="card-body pb-2">
 
         <div class="d-flex align-items-center gap-2 mb-3">
             <div class="bg-<?= $color ?> bg-opacity-10 rounded d-flex align-items-center justify-content-center" style="width: 2rem; height: 2rem;">
