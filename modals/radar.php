@@ -66,7 +66,7 @@
                             </div>
                             <div class="mx-auto mb-3">
                                 <button id="sleep-report-btn" type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#sleepReportModal">
-                                    <i class="fa-solid fa-moon me-2"></i> Relatórios de Sono
+                                    <i class="fa-solid fa-moon me-2"></i> Relatório de Sono
                                 </button>
                             </div>
                         </div>

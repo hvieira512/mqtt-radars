@@ -8,6 +8,10 @@ import {
 } from "./charts/health-score.js";
 import { initHeartRateChart } from "./charts/heart-rate.js";
 import { initSleepChart, updateSleepChart } from "./charts/sleep.js";
+import {
+    initSleepTimelineChart,
+    updateSleepTimeline,
+} from "./charts/timeline-sleep.js";
 
 const modal = document.getElementById("sleepReportModal");
 const container = modal.querySelector(".modal-body");
@@ -17,6 +21,7 @@ export const initSleepReportModal = () => {
     initSleepChart();
     initBreatheChart();
     initHeartRateChart();
+    initSleepTimelineChart();
 
     modal.addEventListener("shown.bs.modal", async (e) => {
         const { id } = e.relatedTarget.dataset;
@@ -34,6 +39,12 @@ export const initSleepReportModal = () => {
             updateHealthScoreChart(data.score, data.scoreLabel);
             updateSleepChart(data.statisticalData);
             updateBreatheChart(data);
+            updateSleepTimeline(
+                data.getBedIdx,
+                data.sleepStIdx,
+                data.sleepEdIdx,
+                data.leaveBedIdx,
+            );
         } catch (error) {
             console.error(error);
             toast.error("Erro ao carregar o relatório de sono");

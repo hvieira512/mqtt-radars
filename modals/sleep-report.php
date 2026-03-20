@@ -277,7 +277,7 @@ $daytimeActivityKPIs = [
     <div class="modal-dialog modal-fullscreen">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="sleepReportModalLabel">Relatórios de Sono</h5>
+                <h5 class="modal-title" id="sleepReportModalLabel">Relatório de Sono</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -301,16 +301,8 @@ $daytimeActivityKPIs = [
                     <div class="card">
                         <div class="card-header">Informações de Sono</div>
                         <div class="card-body">
-                            <div class="d-flex justify-content-between fw-bold text-uppercase text-dark" id="sleep-stats-1">
-                                <span>Adormeceu às 00:00:00 (Latência de sono 16min)</span>
-                                <span>Acordou após as 08h00</span>
-                            </div>
+                            <div id="timeline-sleep-chart" class="w-100" style="height: 100px;"></div>
                             <div id="sleep-chart" class="w-100 py-3" style="height: 250px;"></div>
-                            <div class="d-flex justify-content-between fw-bold text-uppercase text-dark" id="sleep-stats-2">
-                                <span>Entrou na cama 22:47:33</span>
-                                <span>Levantou-se depois das 8h.</span>
-                            </div>
-
                             <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-md-3 mt-2">
                                 <?php foreach ($sleepKPIs as $kpi): ?>
                                     <div class="col">
