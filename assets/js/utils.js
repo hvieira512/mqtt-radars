@@ -74,3 +74,20 @@ export const buttonReset = (buttonEl) => {
 
     button.disabled = false;
 };
+
+export const animateNumber = ({ from, to, duration = 700, onUpdate }) => {
+    const start = performance.now();
+    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+
+    const frame = (now) => {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = easeOut(progress);
+        const value = from + (to - from) * eased;
+
+        onUpdate(value);
+
+        if (progress < 1) requestAnimationFrame(frame);
+    };
+
+    requestAnimationFrame(frame);
+};

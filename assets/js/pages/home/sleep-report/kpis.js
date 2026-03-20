@@ -1,7 +1,7 @@
+import { animateNumber } from "../../../utils.js";
+
 let elements = {};
 const previousValues = new WeakMap();
-
-const getEl = (id) => document.getElementById(id);
 
 const formatKPI = (value, unit) => {
     if (value === null || value === undefined || value === "-") return "-";
@@ -16,23 +16,6 @@ const formatKPI = (value, unit) => {
         default:
             return unit ? `${value} ${unit}` : value;
     }
-};
-
-const animateNumber = ({ from, to, duration = 700, onUpdate }) => {
-    const start = performance.now();
-    const easeOut = (t) => 1 - Math.pow(1 - t, 3);
-
-    const frame = (now) => {
-        const progress = Math.min((now - start) / duration, 1);
-        const eased = easeOut(progress);
-        const value = from + (to - from) * eased;
-
-        onUpdate(value);
-
-        if (progress < 1) requestAnimationFrame(frame);
-    };
-
-    requestAnimationFrame(frame);
 };
 
 const setValue = (el, value, unit) => {
@@ -78,56 +61,60 @@ const mapSleepData = (list = []) => {
 export const initKPIElements = () => {
     elements = {
         general: {
-            sleepDuration: getEl("general-sleep-duration-value"),
-            leaveBed: getEl("leave-bed-value"),
-            deepSleepPercentage: getEl("deep-sleep-percentage-value"),
-            ahi: getEl("ahi-value"),
-            breathRate: getEl("breath-rate-value"),
-            heartRate: getEl("heart-rate-value"),
+            sleepDuration: document.getElementById(
+                "general-sleep-duration-value",
+            ),
+            leaveBed: document.getElementById("leave-bed-value"),
+            deepSleepPercentage: document.getElementById(
+                "deep-sleep-percentage-value",
+            ),
+            ahi: document.getElementById("ahi-value"),
+            breathRate: document.getElementById("breath-rate-value"),
+            heartRate: document.getElementById("heart-rate-value"),
         },
         sleep: {
             hours: {
-                deepSleep: getEl("deep-sleep-value"),
-                lightSleep: getEl("light-sleep-value"),
-                rem: getEl("rem-sleep-value"),
-                awake: getEl("awake-time-value"),
-                sleepTotal: getEl("sleep-duration-value"),
+                deepSleep: document.getElementById("deep-sleep-value"),
+                lightSleep: document.getElementById("light-sleep-value"),
+                rem: document.getElementById("rem-sleep-value"),
+                awake: document.getElementById("awake-time-value"),
+                sleepTotal: document.getElementById("sleep-duration-value"),
             },
             times: {
-                bedExits: getEl("number-of-bed-exits-value"),
+                bedExits: document.getElementById("number-of-bed-exits-value"),
             },
             percent: {
-                deepSleepPercent: getEl("deep-sleep-meta"),
-                lightSleepPercent: getEl("light-sleep-meta"),
-                remPercent: getEl("rem-sleep-meta"),
+                deepSleepPercent: document.getElementById("deep-sleep-meta"),
+                lightSleepPercent: document.getElementById("light-sleep-meta"),
+                remPercent: document.getElementById("rem-sleep-meta"),
             },
         },
         heartRate: {
             bpm: {
-                min: getEl("min-heart-rate-value"),
-                avg: getEl("avg-heart-rate-value"),
-                max: getEl("max-heart-rate-value"),
+                min: document.getElementById("min-heart-rate-value"),
+                avg: document.getElementById("avg-heart-rate-value"),
+                max: document.getElementById("max-heart-rate-value"),
             },
         },
         breathRate: {
             bpm: {
-                min: getEl("min-breath-rate-value"),
-                avg: getEl("avg-breath-rate-value"),
-                max: getEl("max-breath-rate-value"),
+                min: document.getElementById("min-breath-rate-value"),
+                avg: document.getElementById("avg-breath-rate-value"),
+                max: document.getElementById("max-breath-rate-value"),
             },
             times: {
-                apnea: getEl("apnea-value"),
-                tachypnea: getEl("tachypnea-value"),
-                bradypnea: getEl("bradypnea-value"),
+                apnea: document.getElementById("apnea-value"),
+                tachypnea: document.getElementById("tachypnea-value"),
+                bradypnea: document.getElementById("bradypnea-value"),
             },
         },
         daytimeActivity: {
             times: {
-                inOutRoom: getEl("in-out-room-value"),
-                walkingSteps: getEl("walking-steps-value"),
+                inOutRoom: document.getElementById("in-out-room-value"),
+                walkingSteps: document.getElementById("walking-steps-value"),
             },
             speed: {
-                walkingSpeed: getEl("walking-speed-value"),
+                walkingSpeed: document.getElementById("walking-speed-value"),
             },
         },
     };
