@@ -27,14 +27,17 @@ const infoTab = document.getElementById("info");
 const sleepReportBtn = document.getElementById("sleep-report-btn");
 
 let currUID = null;
+let currName = null;
 
 initGrids();
 modal.addEventListener("shown.bs.modal", async (e) => {
     currUID = e.relatedTarget.dataset.id;
+    currName = e.relatedTarget.dataset.name;
     if (!currUID) return;
 
     modal.dataset.id = currUID;
     sleepReportBtn.dataset.id = currUID;
+    sleepReportBtn.dataset.name = currName;
     setCurrentUID(currUID);
 
     renderLoading(container);
