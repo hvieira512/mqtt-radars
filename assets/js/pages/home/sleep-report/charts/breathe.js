@@ -155,45 +155,47 @@ export const updateBreatheChart = (data) => {
     let tachypneaEvents = 0;
     let prevValidValue = null;
 
+    // Track if we are currently in a bradypnea episode
+    let inBradypnea = false;
+
     for (let i = 0; i < values.length; i++) {
         const raw = Number(values[i]);
         const time = timestamps[i];
 
-        // -1 → treat as missing data (null breaks the line)
         const value = raw === -1 ? null : raw;
         let anomaly = null;
 
-        // Only evaluate anomalies on valid readings
         if (raw !== -1) {
-            // Bradypnea: crossing from >8 → ≤8
-            if (prevValidValue !== null && prevValidValue > 8 && raw <= 8) {
-                anomaly = "bradypnea";
-                bradypneaEvents++;
-            }
-
-            // Apnea: explicit 0
             if (raw === 0) {
                 anomaly = "apnea";
                 apneaEvents++;
-            }
-
-            // Tachypnea: >24
-            if (raw > 24) {
+                inBradypnea = false;
+            } else if (
+                !inBradypnea &&
+                prevValidValue !== null &&
+                prevValidValue > 8 &&
+                raw <= 8
+            ) {
+                anomaly = "bradypnea";
+                bradypneaEvents++;
+                inBradypnea = true;
+            } else if (inBradypnea && raw > 8) {
+                inBradypnea = false;
+            } else if (raw > 24) {
                 anomaly = "tachypnea";
                 tachypneaEvents++;
+                inBradypnea = false; // break any ongoing bradypnea episode
             }
 
             prevValidValue = raw;
+        } else {
+            // Missing data breaks bradypnea episodes
+            inBradypnea = false;
         }
 
-        chartData.push({
-            time,
-            value,
-            anomaly,
-        });
+        chartData.push({ time, value, anomaly });
     }
 
-    // Apply data
     xAxis.data.setAll(chartData);
     series.data.setAll(chartData);
 
