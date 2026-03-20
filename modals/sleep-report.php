@@ -29,7 +29,7 @@ $generalKPIs = [
         'unit' => '%',
         'meta' => '<span class="text-danger"><i class="fa-solid fa-circle-xmark"></i> Não Conformidade</span>',
         'metaId' => 'deep-sleep-percentage-meta',
-        'icon' => 'fa-moon',
+        'icon' => 'fa-brain',
         'color' => 'danger',
         'id' => 'deep-sleep-percentage',
         'statId' => 'deep-sleep-percentage-value'
@@ -40,8 +40,8 @@ $generalKPIs = [
         'unit' => '',
         'meta' => '<span class="text-success"><i class="fa-solid fa-circle-check"></i> Conformidade</span>',
         'metaId' => 'ahi-meta',
-        'icon' => 'fa-wave-square',
-        'color' => 'info',
+        'icon' => ' fa-lungs',
+        'color' => 'success',
         'id' => 'ahi',
         'statId' => 'ahi-value'
     ],
@@ -51,8 +51,8 @@ $generalKPIs = [
         'unit' => 'BPM',
         'meta' => '<span class="text-success"><i class="fa-solid fa-circle-check"></i> Normal</span>',
         'metaId' => 'breath-rate-meta',
-        'icon' => 'fa-wind',
-        'color' => 'primary',
+        'icon' => 'fa-lungs',
+        'color' => 'success',
         'id' => 'breath-rate',
         'statId' => 'breath-rate-value'
     ],
@@ -63,7 +63,7 @@ $generalKPIs = [
         'meta' => '<span class="text-success"><i class="fa-solid fa-heart"></i> Normal</span>',
         'metaId' => 'heart-rate-meta',
         'icon' => 'fa-heart',
-        'color' => 'danger',
+        'color' => 'success',
         'id' => 'heart-rate',
         'statId' => 'heart-rate-value'
     ],
@@ -76,7 +76,7 @@ $sleepKPIs = [
         'unit' => 'h',
         'meta' => '<span class="text-muted small">(9%)</span>',
         'metaId' => 'deep-sleep-meta',
-        'icon' => 'fa-star-and-crescent',
+        'icon' => 'fa-brain',
         'color' => 'info',
         'id' => 'deep-sleep',
         'statId' => 'deep-sleep-value'
@@ -114,18 +114,163 @@ $sleepKPIs = [
         'value' => '0.0',
         'unit' => 'h',
         'icon' => 'fa-sun',
-        'color' => 'warning',
+        'color' => 'secondary',
         'id' => 'awake-time'
     ],
     [
         'label' => 'Saídas da cama',
         'value' => '0',
         'unit' => 'vezes',
-        'icon' => 'fa-arrow-right-from-bracket',
-        'color' => 'danger',
+        'icon' => 'fa-person-walking-arrow-right',
+        'color' => 'success',
         'id' => 'number-of-bed-exits'
     ],
 ];
+
+$heartRateKPIs = [
+    [
+        'label' => 'Frequência Cardíacada Máxima',
+        'value' => '70',
+        'unit' => 'BPM',
+        'icon' => 'fa-arrow-up',
+        'color' => 'danger',
+        'id' => 'max-heart-rate',
+        'statId' => 'max-heart-rate-value'
+    ],
+    [
+        'label' => 'Frequência Cardíacada Mínima',
+        'value' => '55',
+        'unit' => 'BPM',
+        'icon' => 'fa-arrow-down',
+        'color' => 'primary',
+        'id' => 'min-heart-rate',
+        'statId' => 'min-heart-rate-value'
+    ],
+    [
+        'label' => 'Frequência Cardíacada Média',
+        'value' => '65',
+        'unit' => 'BPM',
+        'icon' => 'fa-heart-pulse',
+        'color' => 'success',
+        'id' => 'avg-heart-rate',
+        'statId' => 'avg-heart-rate-value'
+    ],
+    [
+        'label' => 'Sinais Vitais Fracos',
+        'value' => '0',
+        'unit' => 'vezes',
+        'icon' => 'fa-heart-crack',
+        'color' => 'warning',
+        'id' => 'weak-vital-signs',
+        'statId' => 'weak-vital-signs-value'
+    ],
+    [
+        'label' => 'Policardia',
+        'value' => '0',
+        'unit' => 'vezes',
+        'icon' => 'fa-triangle-exclamation',
+        'color' => 'danger',
+        'id' => 'polycardia',
+        'statId' => 'polycardia-value'
+    ],
+    [
+        'label' => 'Bradicardia',
+        'value' => '0',
+        'unit' => 'vezes',
+        'icon' => 'fa-heart',
+        'color' => 'warning',
+        'id' => 'bradycardia',
+        'statId' => 'bradycardia-value'
+    ],
+];
+
+$breatheKPIs = [
+    [
+        'label' => 'Frequência Respiratória Máxima',
+        'value' => '21',
+        'unit' => 'BPM',
+        'icon' => 'fa-arrow-up',
+        'color' => 'danger',
+        'id' => 'max-breath-rate',
+        'statId' => 'max-breath-rate-value'
+    ],
+    [
+        'label' => 'Frequência Respiratória Mínima',
+        'value' => '6',
+        'unit' => 'BPM',
+        'icon' => 'fa-arrow-down',
+        'color' => 'primary',
+        'id' => 'min-breath-rate',
+        'statId' => 'min-breath-rate-value'
+    ],
+    [
+        'label' => 'Frequência Respiratória Média',
+        'value' => '11',
+        'unit' => 'BPM',
+        'icon' => 'fa-lungs',
+        'color' => 'success',
+        'id' => 'avg-breath-rate',
+        'statId' => 'avg-breath-rate-value',
+    ],
+    [
+        'label' => 'Apneia',
+        'value' => '4',
+        'unit' => 'vezes',
+        'icon' => 'fa-lungs-virus',
+        'color' => 'warning',
+        'id' => 'apnea',
+        'statId' => 'apnea-value',
+    ],
+    [
+        'label' => 'Taquipneia',
+        'value' => '0',
+        'unit' => 'vezes',
+        'icon' => 'fa-triangle-exclamation',
+        'color' => 'danger',
+        'id' => 'tachypnea',
+        'statId' => 'tachypnea-value',
+    ],
+    [
+        'label' => 'Bradipneia',
+        'value' => '7',
+        'unit' => 'vezes',
+        'icon' => 'fa-square',
+        'color' => 'warning',
+        'id' => 'bradypnea',
+        'statId' => 'bradypnea-value',
+    ],
+];
+
+$daytimeActivityKPIs = [
+    [
+        'label' => 'Quarto interior / exterior',
+        'value' => '31',
+        'unit' => 'vezes',
+        'icon' => 'fa-door-open',
+        'color' => 'primary',
+        'id' => 'in-out-room',
+        'statId' => 'in-out-room-value',
+    ],
+    [
+        'label' => 'Passos a caminhar',
+        'value' => '522',
+        'unit' => 'vezes',
+        'icon' => 'fa-shoe-prints',
+        'color' => 'primary',
+        'id' => 'walking-steps',
+        'statId' => 'walking-steps-value',
+    ],
+    [
+        'label' => 'Velocidade de marcha',
+        'value' => '21.75',
+        'unit' => 'm/min',
+        'icon' => 'fa-gauge-high',
+        'color' => 'primary',
+        'id' => 'walking-speed',
+        'statId' => 'walking-speed-value',
+    ],
+];
+
 ?>
 
 <div class="modal fade" id="sleepReportModal" tabindex="-1" aria-labelledby="sleepReportModal" aria-hidden="true">
@@ -178,7 +323,118 @@ $sleepKPIs = [
 
                     <div class="card">
                         <div class="card-header">Respiração</div>
+                        <div class="card-body">
+                            <div id="breathe-chart" class="w-100 pb-3" style="height: 250px;"></div>
+                            <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-md-3 mt-2">
+                                <?php foreach ($breatheKPIs as $kpi): ?>
+                                    <div class="col">
+                                        <?php component('kpi-card', $kpi); ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
                     </div>
+
+                    <div class="card">
+                        <div class="card-header">Frequência cardíaca</div>
+                        <div class="card-body">
+                            <div id="heart-rate-chart" class="w-100 mb-3" style="height: 250px;"></div>
+                            <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-md-3 mt-2">
+                                <?php foreach ($heartRateKPIs as $kpi): ?>
+                                    <div class="col">
+                                        <?php component('kpi-card', $kpi); ?>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">Atividade Diurna</div>
+                        <div class="card-body row g-3 row-cols-1 row-cols-md-2">
+                            <div class="col">
+                                <div id="daytime-activity-chart" class="w-100 mb-3" style="height: 250px;"></div>
+                            </div>
+                            <div class="col">
+                                <div class="d-flex flex-column gap-3">
+                                    <?php foreach ($daytimeActivityKPIs as $kpi): ?>
+                                        <div class="col">
+                                            <?php component('kpi-card', $kpi); ?>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">Sugestões</div>
+                        <div class="card-body row g-3 row-cols-1 row-cols-md-2">
+                            <div class="col">
+
+                                <div class="card shadow-sm border-0 h-100">
+                                    <div class="card-body d-flex flex-column gap-3">
+
+                                        <!-- Header -->
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="bg-info bg-opacity-10 rounded d-flex align-items-center justify-content-center"
+                                                style="width: 2.5rem; height: 2.5rem;">
+                                                <i class="fa-solid fa-brain text-info"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-semibold">Sono</div>
+                                                <small class="text-muted">Análise automática</small>
+                                            </div>
+                                        </div>
+
+                                        <!-- Content -->
+                                        <div class="d-flex flex-column gap-2 small text-muted" id="sleep-analysis-content">
+                                            <div class="fw-medium text-dark">Your sleep duration is 8 H 30 Min, percentage of deep sleep is 8%.</div>
+                                            <div class="d-flex align-items-baseline gap-2">
+                                                <i class="fa-solid fa-circle text-secondary mt-1" style="font-size: 0.4rem;"></i>
+                                                <span>You have sufficient sleep duration but and slightly less deep sleep duration.</span>
+                                            </div>
+                                            <div class="d-flex align-items-baseline gap-2">
+                                                <i class="fa-solid fa-circle text-secondary mt-1" style="font-size: 0.4rem;"></i>
+                                                <span>Relaxing your mood helps with deep sleep.</span>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col">
+
+                                <div class="card shadow-sm border-0 h-100">
+                                    <div class="card-body d-flex flex-column gap-3">
+
+                                        <!-- Header -->
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="bg-success bg-opacity-10 rounded d-flex align-items-center justify-content-center"
+                                                style="width: 2.5rem; height: 2.5rem;">
+                                                <i class="fa-solid fa-lungs text-success"></i>
+                                            </div>
+                                            <div>
+                                                <div class="fw-semibold">Respiração</div>
+                                                <small class="text-muted">Análise automática</small>
+                                            </div>
+                                        </div>
+
+                                        <!-- Content -->
+                                        <div class="d-flex flex-column gap-2 small text-muted" id="breath-analysis-content">
+                                            <div class="fw-medium text-dark">Your AHI is 0.7  (Normal) </div>
+                                            <div class="d-flex align-items-baseline gap-2">
+                                                <i class="fa-solid fa-circle text-secondary mt-1" style="font-size: 0.4rem;"></i>
+                                                <span>An AHI score lower than 5 indicates normal, healthy breathing</span>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>

@@ -22,8 +22,7 @@ const defaultOptions = {
     animateRows: true,
     domLayout: "autoHeight",
     pagination: true,
-    paginationPageSize: 10,
-    theme: "ag-theme-quartz",
+    paginationPageSizeSelector: [10, 20, 50, 100, 200, 500],
     overlayNoRowsTemplate: "Sem resultados",
 };
 

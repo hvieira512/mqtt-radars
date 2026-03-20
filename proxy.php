@@ -124,7 +124,8 @@ function refreshToken($config, $credentials)
         'pattern' => 'monitor'
     ];
 
-    $response = httpRequest($config['login_url'], ['Content-Type: application/json'], $payload);
+    $login_url = "{$config['api_base']}/login";
+    $response = httpRequest($login_url, ['Content-Type: application/json'], $payload);
     $json = json_decode($response, true);
 
     if (!isset($json['data']['access_token'])) {

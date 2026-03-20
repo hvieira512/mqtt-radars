@@ -1,7 +1,7 @@
 import { getRequest } from "../../../auth.js";
 import toast from "../../../toastr.js";
 import { removeLoading, renderLoading } from "../../../utils.js";
-import { initBreatheChart } from "./charts/breathe.js";
+import { initBreatheChart, updateBreatheChart } from "./charts/breathe.js";
 import {
     initHealthScoreChart,
     updateHealthScoreChart,
@@ -22,7 +22,6 @@ export const initSleepReportModal = () => {
         const { id } = e.relatedTarget.dataset;
         if (!id) return;
 
-        toast.success(`Fetching data for device: ${id}`);
         try {
             renderLoading(container);
             const today = new Date();
@@ -34,6 +33,7 @@ export const initSleepReportModal = () => {
             console.log(data);
             updateHealthScoreChart(data.score, data.scoreLabel);
             updateSleepChart(data.statisticalData);
+            updateBreatheChart(data);
         } catch (error) {
             console.error(error);
             toast.error("Erro ao carregar o relatório de sono");
