@@ -29,21 +29,24 @@ const getWifiIcon = (isOnline) => {
     return `<i class="fa-solid fa-wifi text-${status}" data-bs-toggle="tooltip" data-bs-placement="top" title="${title}"></i>`;
 };
 
-const renderDeviceCard = ({ uid, eqt_name, modelNumber, isOnline }) => `
+const renderDeviceCard = ({ uid, eqt_name, modelNumber, isOnline }) => {
+    const name = eqt_name || "Unnamed Device";
+
+    return `
     <div class="col-md-4 col-lg-3">
-        <div role="button" class="card device-card shadow-sm h-100"
-             data-bs-toggle="modal" data-bs-target="#radarModal" data-id="${uid}">
+        <div role="button" class="card device-card shadow-sm h-100" data-bs-toggle="modal" data-bs-target="#radarModal" data-id="${uid}" data-name="${name}">
             <div class="card-body d-flex flex-column">
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <span class="device-model fw-bold">Modelo ${getModelName(modelNumber)}</span>
                     ${getWifiIcon(isOnline === "0")}
                 </div>
-                <h5 class="device-name mb-1">${eqt_name || "Unnamed Device"}</h5>
+                <h5 class="device-name mb-1">${name}</h5>
                 <small class="text-muted">UID: ${uid}</small>
             </div>
         </div>
     </div>
-`;
+    `;
+};
 
 // Fetch devices
 const fetchDevices = async () => {

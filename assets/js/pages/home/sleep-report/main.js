@@ -1,6 +1,7 @@
 import { getRequest } from "../../../auth.js";
 import toast from "../../../toastr.js";
 import { removeLoading, renderLoading } from "../../../utils.js";
+
 import { initBreatheChart, updateBreatheChart } from "./charts/breathe.js";
 import {
     initHealthScoreChart,
@@ -15,9 +16,67 @@ import {
 import { initKPIElements, updateKPIs } from "./kpis.js";
 
 const modal = document.getElementById("sleepReportModal");
-const container = modal.querySelector(".modal-body");
+const container = modal?.querySelector(".modal-body");
+const radarName = document.getElementById("device-name-model-sleep-report");
+const dateField = document.getElementById("pick-date-field");
+
+let currentDevice = { id: null, name: null };
+
+const getToday = () => new Date().toISOString().split("T")[0];
+
+const isValidDevice = (device) => device?.id;
+
+const fetchReport = async (uid, name, date) => {
+    if (!uid) return;
+
+    try {
+        renderLoading(container);
+
+        const params = { uid, date, lang: "en_US" };
+        const { data } = await getRequest("radar/monitor/report", params);
+        if (radarName) radarName.textContent = `${name} | ${uid}`;
+
+        updateHealthScoreChart(data.score, data.scoreLabel);
+        updateSleepChart(data.statisticalData);
+        data.breathKPIs = updateBreatheChart(data);
+
+        updateSleepTimeline(
+            data.getBedIdx,
+            data.sleepStIdx,
+            data.sleepEdIdx,
+            data.leaveBedIdx,
+        );
+
+        updateKPIs(data);
+    } catch (error) {
+        console.error("[SleepReport] Fetch error:", error);
+        toast.error("Erro ao carregar o relatório de sono");
+    } finally {
+        removeLoading(container);
+    }
+};
+
+const handleModalOpen = async (e) => {
+    const trigger = e.relatedTarget;
+    if (!trigger?.dataset) return;
+
+    const { id, name } = trigger.dataset;
+    if (!id) return;
+
+    currentDevice = { id, name };
+
+    await fetchReport(id, name, dateField?.value || getToday());
+};
+
+const handleDateChange = async () => {
+    if (!isValidDevice(currentDevice)) return;
+
+    await fetchReport(currentDevice.id, currentDevice.name, dateField.value);
+};
 
 export const initSleepReportModal = () => {
+    if (!modal) return;
+
     initHealthScoreChart();
     initSleepChart();
     initBreatheChart();
@@ -25,33 +84,8 @@ export const initSleepReportModal = () => {
     initSleepTimelineChart();
     initKPIElements();
 
-    modal.addEventListener("shown.bs.modal", async (e) => {
-        const { id } = e.relatedTarget.dataset;
-        if (!id) return;
+    if (dateField) dateField.value = getToday();
 
-        try {
-            renderLoading(container);
-            const today = new Date();
-            const dateString = today.toISOString().split("T")[0];
-
-            const params = { uid: id, date: dateString, lang: "en_US" };
-            const { data } = await getRequest("radar/monitor/report", params);
-
-            updateHealthScoreChart(data.score, data.scoreLabel);
-            updateSleepChart(data.statisticalData);
-            data.breathKPIs = updateBreatheChart(data);
-            updateSleepTimeline(
-                data.getBedIdx,
-                data.sleepStIdx,
-                data.sleepEdIdx,
-                data.leaveBedIdx,
-            );
-            updateKPIs(data);
-        } catch (error) {
-            console.error(error);
-            toast.error("Erro ao carregar o relatório de sono");
-        } finally {
-            removeLoading(container);
-        }
-    });
+    modal.addEventListener("shown.bs.modal", handleModalOpen);
+    dateField?.addEventListener("change", handleDateChange);
 };

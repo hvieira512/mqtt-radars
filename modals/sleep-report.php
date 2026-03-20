@@ -286,75 +286,37 @@ $daytimeActivityKPIs = [
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="container-xxl d-flex flex-column gap-3 bg-light">
+                <div class="container-xxl">
 
-                    <div class="row g-3 mt-1">
-                        <div class="col-12 col-md-4">
-                            <div id="health-score-pie" class="w-100 card" style="height: 100%;"></div>
-                        </div>
-                        <div class="col-12 col-md-8">
-                            <div id="kpis-stats" class="row g-3 row-cols-1 row-cols-md-2">
-                                <?php foreach ($generalKPIs as $kpi): ?>
-                                    <div class="col">
-                                        <?php component('kpi-card', $kpi); ?>
-                                    </div>
-                                <?php endforeach ?>
-                            </div>
-                        </div>
+                    <div class="d-flex align-items-end justify-content-between flex-wrap gap-3 mb-3">
+                        <span id="device-name-model-sleep-report"> </span>
+                        <input type="date" id="pick-date-field" class="form-control w-auto">
                     </div>
 
-                    <div class="card">
-                        <div class="card-header">Informações de Sono</div>
-                        <div class="card-body">
-                            <div id="timeline-sleep-chart" class="w-100" style="height: 100px;"></div>
-                            <div id="sleep-chart" class="w-100 py-3" style="height: 250px;"></div>
-                            <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-md-3 mt-2">
-                                <?php foreach ($sleepKPIs as $kpi): ?>
-                                    <div class="col">
-                                        <?php component('kpi-card', $kpi); ?>
-                                    </div>
-                                <?php endforeach; ?>
+                    <div class="d-flex flex-column gap-3 bg-light p-3 shadow-sm">
+
+                        <div class="row g-3">
+                            <div class="col-12 col-md-4">
+                                <div id="health-score-pie" class="w-100 card" style="height: 100%;"></div>
+                            </div>
+                            <div class="col-12 col-md-8">
+                                <div id="kpis-stats" class="row g-3 row-cols-1 row-cols-md-2">
+                                    <?php foreach ($generalKPIs as $kpi): ?>
+                                        <div class="col">
+                                            <?php component('kpi-card', $kpi); ?>
+                                        </div>
+                                    <?php endforeach ?>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="card">
-                        <div class="card-header">Respiração</div>
-                        <div class="card-body">
-                            <div id="breathe-chart" class="w-100 pb-3" style="height: 250px;"></div>
-                            <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-md-3 mt-2">
-                                <?php foreach ($breatheKPIs as $kpi): ?>
-                                    <div class="col">
-                                        <?php component('kpi-card', $kpi); ?>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header">Frequência cardíaca</div>
-                        <div class="card-body">
-                            <div id="heart-rate-chart" class="w-100 mb-3" style="height: 250px;"></div>
-                            <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-md-3 mt-2">
-                                <?php foreach ($heartRateKPIs as $kpi): ?>
-                                    <div class="col">
-                                        <?php component('kpi-card', $kpi); ?>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header">Atividade Diurna</div>
-                        <div class="card-body row g-3 row-cols-1 row-cols-md-2">
-                            <div class="col">
-                                <div id="daytime-activity-chart" class="w-100 mb-3" style="height: 250px;"></div>
-                            </div>
-                            <div class="col">
-                                <div class="d-flex flex-column gap-3">
-                                    <?php foreach ($daytimeActivityKPIs as $kpi): ?>
+                        <div class="card">
+                            <div class="card-header">Informações de Sono</div>
+                            <div class="card-body">
+                                <div id="timeline-sleep-chart" class="w-100" style="height: 100px;"></div>
+                                <div id="sleep-chart" class="w-100 py-3" style="height: 250px;"></div>
+                                <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-md-3 mt-2">
+                                    <?php foreach ($sleepKPIs as $kpi): ?>
                                         <div class="col">
                                             <?php component('kpi-card', $kpi); ?>
                                         </div>
@@ -362,69 +324,103 @@ $daytimeActivityKPIs = [
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="card">
-                        <div class="card-header">Sugestões</div>
-                        <div class="card-body row g-3 row-cols-1 row-cols-md-2 align-items-stretch">
-                            <div class="col">
-
-                                <div class="card shadow-sm h-100 border-info">
-                                    <div class="card-body d-flex flex-column gap-3">
-
-                                        <!-- Header -->
-                                        <div class="d-flex align-items-center gap-3 border-bottom border-info pb-3">
-                                            <div class="bg-info bg-opacity-10 rounded d-flex align-items-center justify-content-center" style="width: 2.5rem; height: 2.5rem;">
-                                                <i class="fa-solid fa-brain text-info"></i>
-                                            </div>
-                                            <div class="lh-sm">
-                                                <div class="fw-semibold">Sono</div>
-                                                <small class="text-muted">Análise automática</small>
-                                            </div>
+                        <div class="card">
+                            <div class="card-header">Respiração</div>
+                            <div class="card-body">
+                                <div id="breathe-chart" class="w-100 pb-3" style="height: 250px;"></div>
+                                <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-md-3 mt-2">
+                                    <?php foreach ($breatheKPIs as $kpi): ?>
+                                        <div class="col">
+                                            <?php component('kpi-card', $kpi); ?>
                                         </div>
-
-                                        <!-- Content -->
-                                        <div class="d-flex flex-column gap-2 small text-muted" id="sleep-analysis-content">
-                                            <div class="fw-medium text-dark">Your sleep duration is 8 H 30 Min, percentage of deep sleep is 8%.</div>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <i class="fa-solid fa-circle text-secondary mt-1" style="font-size: 0.4rem;"></i>
-                                                <span>You have sufficient sleep duration but and slightly less deep sleep duration.</span>
-                                            </div>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <i class="fa-solid fa-circle text-secondary mt-1" style="font-size: 0.4rem;"></i>
-                                                <span>Relaxing your mood helps with deep sleep.</span>
-                                            </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">Frequência cardíaca</div>
+                            <div class="card-body">
+                                <div id="heart-rate-chart" class="w-100 mb-3" style="height: 250px;"></div>
+                                <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-md-3 mt-2">
+                                    <?php foreach ($heartRateKPIs as $kpi): ?>
+                                        <div class="col">
+                                            <?php component('kpi-card', $kpi); ?>
                                         </div>
-
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">Atividade Diurna</div>
+                            <div class="card-body row g-3 row-cols-1 row-cols-md-2">
+                                <div class="col">
+                                    <div id="daytime-activity-chart" class="w-100 mb-3" style="height: 250px;"></div>
+                                </div>
+                                <div class="col">
+                                    <div class="d-flex flex-column gap-3">
+                                        <?php foreach ($daytimeActivityKPIs as $kpi): ?>
+                                            <div class="col">
+                                                <?php component('kpi-card', $kpi); ?>
+                                            </div>
+                                        <?php endforeach; ?>
                                     </div>
                                 </div>
                             </div>
-                            <div class="col">
-
-                                <div class="card shadow-sm h-100 border-success">
-                                    <div class="card-body d-flex flex-column gap-3">
-
-                                        <!-- Header -->
-                                        <div class="d-flex align-items-center gap-3 border-bottom border-success pb-3">
-                                            <div class="bg-success bg-opacity-10 rounded d-flex align-items-center justify-content-center"
-                                                style="width: 2.5rem; height: 2.5rem;">
-                                                <i class="fa-solid fa-lungs text-success"></i>
+                        </div>
+                        <div class="card">
+                            <div class="card-header">Sugestões</div>
+                            <div class="card-body row g-3 row-cols-1 row-cols-md-2 align-items-stretch">
+                                <div class="col">
+                                    <div class="card shadow-sm h-100 border-info">
+                                        <div class="card-body d-flex flex-column gap-3">
+                                            <!-- Header -->
+                                            <div class="d-flex align-items-center gap-3 border-bottom border-info pb-3">
+                                                <div class="bg-info bg-opacity-10 rounded d-flex align-items-center justify-content-center" style="width: 2.5rem; height: 2.5rem;">
+                                                    <i class="fa-solid fa-brain text-info"></i>
+                                                </div>
+                                                <div class="lh-sm">
+                                                    <div class="fw-semibold">Sono</div>
+                                                    <small class="text-muted">Análise automática</small>
+                                                </div>
                                             </div>
-                                            <div class="lh-sm">
-                                                <div class="fw-semibold">Respiração</div>
-                                                <small class="text-muted">Análise automática</small>
+                                            <!-- Content -->
+                                            <div class="d-flex flex-column gap-2 small text-muted" id="sleep-analysis-content">
+                                                <div class="fw-medium text-dark">Your sleep duration is 8 H 30 Min, percentage of deep sleep is 8%.</div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <i class="fa-solid fa-circle text-secondary mt-1" style="font-size: 0.4rem;"></i>
+                                                    <span>You have sufficient sleep duration but and slightly less deep sleep duration.</span>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <i class="fa-solid fa-circle text-secondary mt-1" style="font-size: 0.4rem;"></i>
+                                                    <span>Relaxing your mood helps with deep sleep.</span>
+                                                </div>
                                             </div>
                                         </div>
-
-                                        <!-- Content -->
-                                        <div class="d-flex flex-column gap-2 small text-muted" id="breath-analysis-content">
-                                            <div class="fw-medium text-dark">Your AHI is 0.7  (Normal) </div>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <i class="fa-solid fa-circle text-secondary mt-1" style="font-size: 0.4rem;"></i>
-                                                <span>An AHI score lower than 5 indicates normal, healthy breathing</span>
+                                    </div>
+                                </div>
+                                <div class="col">
+                                    <div class="card shadow-sm h-100 border-success">
+                                        <div class="card-body d-flex flex-column gap-3">
+                                            <!-- Header -->
+                                            <div class="d-flex align-items-center gap-3 border-bottom border-success pb-3">
+                                                <div class="bg-success bg-opacity-10 rounded d-flex align-items-center justify-content-center"
+                                                    style="width: 2.5rem; height: 2.5rem;">
+                                                    <i class="fa-solid fa-lungs text-success"></i>
+                                                </div>
+                                                <div class="lh-sm">
+                                                    <div class="fw-semibold">Respiração</div>
+                                                    <small class="text-muted">Análise automática</small>
+                                                </div>
+                                            </div>
+                                            <!-- Content -->
+                                            <div class="d-flex flex-column gap-2 small text-muted" id="breath-analysis-content">
+                                                <div class="fw-medium text-dark">Your AHI is 0.7  (Normal) </div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <i class="fa-solid fa-circle text-secondary mt-1" style="font-size: 0.4rem;"></i>
+                                                    <span>An AHI score lower than 5 indicates normal, healthy breathing</span>
+                                                </div>
                                             </div>
                                         </div>
-
                                     </div>
                                 </div>
                             </div>
