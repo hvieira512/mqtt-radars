@@ -12,6 +12,7 @@ import {
     initSleepTimelineChart,
     updateSleepTimeline,
 } from "./charts/timeline-sleep.js";
+import { initKPIElements, updateKPIs } from "./kpis.js";
 
 const modal = document.getElementById("sleepReportModal");
 const container = modal.querySelector(".modal-body");
@@ -22,6 +23,7 @@ export const initSleepReportModal = () => {
     initBreatheChart();
     initHeartRateChart();
     initSleepTimelineChart();
+    initKPIElements();
 
     modal.addEventListener("shown.bs.modal", async (e) => {
         const { id } = e.relatedTarget.dataset;
@@ -35,16 +37,16 @@ export const initSleepReportModal = () => {
             const params = { uid: id, date: dateString, lang: "en_US" };
             const { data } = await getRequest("radar/monitor/report", params);
 
-            console.log(data);
             updateHealthScoreChart(data.score, data.scoreLabel);
             updateSleepChart(data.statisticalData);
-            updateBreatheChart(data);
+            data.breathKPIs = updateBreatheChart(data);
             updateSleepTimeline(
                 data.getBedIdx,
                 data.sleepStIdx,
                 data.sleepEdIdx,
                 data.leaveBedIdx,
             );
+            updateKPIs(data);
         } catch (error) {
             console.error(error);
             toast.error("Erro ao carregar o relatório de sono");

@@ -80,14 +80,25 @@ switch(event)
 
 # To Do
 
+- Sleep Report
+    - Atualizar meta data
+    - Gráfico Frequência cardíaca
+        - retornar anomalias para os kpis
+    - Gráfico Atividade Diurna
+    - Sugestões
+    - No data found element
+
+# In Progress
+
+- Sleep Report
+    - Nome e Modelo do radar
+    - Input date
+
+# Done
+
 - Criar estrutura tabela alarmes
 - Inserir alarmes na base de dados
 - Quando o modal de um radar abre, carregar o histórico de eventos e alarmes na tabela
 - Inicializar os gráficos dos sinais vitais, independentemente se vêm dados ou não
-
-# In Progress
-
-# Done
-
 - Resize do mapa quando é mexido na largura da janela do browser
 - Movimentos suaves das pessoas

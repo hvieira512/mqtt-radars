@@ -8,7 +8,7 @@
             <div class="modal-body">
                 <div class="row g-3 mb-3 d-flex align-items-stretch">
                     <div class="col-12 col-xl-8">
-                        <div id="liveRadarMap" class="card shadow">
+                        <div id="liveRadarMap" class="card shadow h-100">
                             <div class="card-header mb-0">
                                 Monitorização de Trajetos
                             </div>
