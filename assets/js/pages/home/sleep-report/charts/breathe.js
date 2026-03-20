@@ -1,8 +1,5 @@
 let root, chart, xAxis, yAxis, series;
 
-// ────────────────────────────────────────────────
-// Constants & Config
-// ────────────────────────────────────────────────
 const ANOMALY_TYPES = {
     apnea: { shape: "circle", color: "#ffc107", label: "Apnea" }, // warning yellow
     bradypnea: { shape: "rectangle", color: "#EB8142", label: "Bradypnea" },
@@ -17,9 +14,6 @@ const SHAPE_SIZES = {
 
 const THRESHOLDS = [8, 24];
 
-// ────────────────────────────────────────────────
-// Initialization (called once)
-// ────────────────────────────────────────────────
 export const initBreatheChart = () => {
     root = am5.Root.new("breathe-chart");
     root._logo?.dispose();
@@ -136,9 +130,6 @@ export const initBreatheChart = () => {
     return { root, chart, series, xAxis };
 };
 
-// ────────────────────────────────────────────────
-// Data Update
-// ────────────────────────────────────────────────
 export const updateBreatheChart = (data) => {
     const values = data.breathRateVo?.dataList ?? [];
     const timestamps = data.timestamps ?? [];

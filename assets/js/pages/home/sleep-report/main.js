@@ -7,7 +7,10 @@ import {
     initHealthScoreChart,
     updateHealthScoreChart,
 } from "./charts/health-score.js";
-import { initHeartRateChart } from "./charts/heart-rate.js";
+import {
+    initHeartRateChart,
+    updateHeartRateChart,
+} from "./charts/heart-rate.js";
 import { initSleepChart, updateSleepChart } from "./charts/sleep.js";
 import {
     initSleepTimelineChart,
@@ -39,6 +42,7 @@ const fetchReport = async (uid, name, date) => {
         updateHealthScoreChart(data.score, data.scoreLabel);
         updateSleepChart(data.statisticalData);
         data.breathKPIs = updateBreatheChart(data);
+        data.heartKPIs = updateHeartRateChart(data);
 
         updateSleepTimeline(
             data.getBedIdx,
