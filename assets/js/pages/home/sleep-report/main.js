@@ -4,6 +4,10 @@ import { removeLoading, renderLoading } from "../../../utils.js";
 
 import { initBreatheChart, updateBreatheChart } from "./charts/breathe.js";
 import {
+    initDaytimeActivityChart,
+    updateDaytimeActivityChart,
+} from "./charts/daytime.js";
+import {
     initHealthScoreChart,
     updateHealthScoreChart,
 } from "./charts/health-score.js";
@@ -50,7 +54,9 @@ const fetchReport = async (uid, name, date) => {
             data.sleepEdIdx,
             data.leaveBedIdx,
         );
+        updateDaytimeActivityChart(data);
 
+        console.log(data);
         updateKPIs(data);
     } catch (error) {
         console.error("[SleepReport] Fetch error:", error);
@@ -87,6 +93,7 @@ export const initSleepReportModal = () => {
     initHeartRateChart();
     initSleepTimelineChart();
     initKPIElements();
+    initDaytimeActivityChart();
 
     if (dateField) dateField.value = getToday();
 

@@ -297,7 +297,7 @@ $daytimeActivityKPIs = [
 
                         <div class="row g-3">
                             <div class="col-12 col-md-4">
-                                <div id="health-score-pie" class="w-100 card" style="height: 100%;"></div>
+                                <div id="health-score-pie" class="card w-100 h-100"></div>
                             </div>
                             <div class="col-12 col-md-8">
                                 <div id="kpis-stats" class="row g-3 row-cols-1 row-cols-md-2">
@@ -354,7 +354,7 @@ $daytimeActivityKPIs = [
                             <div class="card-header">Atividade Diurna</div>
                             <div class="card-body row g-3 row-cols-1 row-cols-md-2">
                                 <div class="col">
-                                    <div id="daytime-activity-chart" class="w-100 mb-3" style="height: 250px;"></div>
+                                    <div id="daytime-activity-chart" class="w-100 h-100 mb-3"></div>
                                 </div>
                                 <div class="col">
                                     <div class="d-flex flex-column gap-3">
