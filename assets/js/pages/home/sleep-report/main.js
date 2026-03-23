@@ -9,6 +9,7 @@ import * as HeartRate from "./charts/heart-rate.js";
 import * as Sleep from "./charts/sleep.js";
 import * as Timeline from "./charts/timeline-sleep.js";
 import { initKPIElements, updateKPIs } from "./kpis.js";
+import * as Suggestion from "./suggestions.js";
 
 const DOM = {
     modal: document.getElementById("sleepReportModal"),
@@ -51,6 +52,14 @@ const refreshCharts = (data) => {
 
     Daytime.updateDaytimeActivityChart(data);
     updateKPIs(data);
+    Suggestion.updateSuggestions(
+        data.evaluation.sleepAnalysisEvaluation,
+        "sleep-analysis-content",
+    );
+    Suggestion.updateSuggestions(
+        data.evaluation.sleepAHIEvaluation,
+        "breath-analysis-content",
+    );
 };
 
 const fetchReport = async (uid, name, date) => {
