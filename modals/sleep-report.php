@@ -72,7 +72,7 @@ function render_component_list($dataArray, $componentName) {
                         <input type="date" id="pick-date-field" class="form-control w-auto">
                     </div>
 
-                    <div id="no-data-state" class="d-none text-center py-5">
+                    <div id="no-data-state" class="d-none card bg-light text-center py-5">
                         <div class="d-flex flex-column align-items-center gap-4">
                             <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" class="text-muted opacity-50">
                                 <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />

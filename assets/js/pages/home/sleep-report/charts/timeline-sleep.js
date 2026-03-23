@@ -40,7 +40,7 @@ const buildTimelineData = (getBed, sleepStart, sleepEnd, leaveBed) => {
             start: getBed.getTime(),
             end: sleepStart.getTime(),
             color: am5.color(0x6c757d),
-            label: `Latência (${formatDuration(latencyMs)})`,
+            label: `Latência de Sono (${formatDuration(latencyMs)})`,
         },
         {
             category: CATEGORY,
@@ -215,8 +215,6 @@ export function updateSleepTimeline(
     leaveBedIdx,
 ) {
     if (!root) return;
-
-    console.log({ getBedIdx, sleepStIdx, sleepEdIdx, leaveBedIdx });
 
     const baseDate = new Date();
     baseDate.setHours(18, 0, 0, 0);
