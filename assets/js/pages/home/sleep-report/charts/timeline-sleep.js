@@ -7,24 +7,32 @@ let eventSeries;
 
 const CATEGORY = "Sono";
 
-const parseTime = (timeStr) => {
-    if (timeStr.includes("After")) {
-        return timeStr.replace("After ", "") + ":00";
+const processTimeInput = (timeStr, baseDate) => {
+    const isNextDay = timeStr.includes("After");
+    const cleanTime = timeStr.replace("After ", "");
+    const [h, m] = cleanTime.split(":").map(Number);
+
+    const date = new Date(baseDate);
+    date.setHours(h, m, 0, 0);
+
+    if (isNextDay) {
+        date.setDate(date.getDate() + 1);
     }
-    return timeStr;
+    return date;
 };
 
-const toDate = (timeStr, baseDate, isNextDay = false) => {
-    const [h, m, s] = timeStr.split(":").map(Number);
-    const d = new Date(baseDate);
-    d.setHours(h, m, s || 0);
+const formatDuration = (ms) => {
+    const totalMinutes = Math.floor(ms / 60000);
+    const h = Math.floor(totalMinutes / 60);
+    const m = totalMinutes % 60;
 
-    if (isNextDay) d.setDate(d.getDate() + 1);
-    return d;
+    if (h > 0) return `${h}h ${m}m`;
+    return `${m}m`;
 };
 
 const buildTimelineData = (getBed, sleepStart, sleepEnd, leaveBed) => {
-    const latencyMin = Math.round((sleepStart - getBed) / 60000);
+    const latencyMs = sleepStart - getBed;
+    const sleepMs = sleepEnd - sleepStart;
 
     return [
         {
@@ -32,14 +40,14 @@ const buildTimelineData = (getBed, sleepStart, sleepEnd, leaveBed) => {
             start: getBed.getTime(),
             end: sleepStart.getTime(),
             color: am5.color(0x6c757d),
-            label: `Latência (${latencyMin} min)`,
+            label: `Latência (${formatDuration(latencyMs)})`,
         },
         {
             category: CATEGORY,
             start: sleepStart.getTime(),
             end: sleepEnd.getTime(),
             color: am5.color(0x0d6efd),
-            label: "Sono",
+            label: `Sono (${formatDuration(sleepMs)})`,
         },
         {
             category: CATEGORY,
@@ -51,52 +59,61 @@ const buildTimelineData = (getBed, sleepStart, sleepEnd, leaveBed) => {
     ];
 };
 
-const buildEventData = (getBed, sleepStart, sleepEnd, leaveBed) => [
-    { category: CATEGORY, time: getBed.getTime(), icon: "🛏️" },
-    { category: CATEGORY, time: sleepStart.getTime(), icon: "🌙" },
-    { category: CATEGORY, time: sleepEnd.getTime(), icon: "🌅" },
-    { category: CATEGORY, time: leaveBed.getTime(), icon: "🚶" },
-];
-
 export function initSleepTimelineChart(containerId = "timeline-sleep-chart") {
     if (root) root.dispose();
 
     root = am5.Root.new(containerId);
     root._logo?.dispose();
 
+    // Use a standard XYChart configured for horizontal bars (Gantt style)
     chart = root.container.children.push(
         am5xy.XYChart.new(root, {
-            panX: false,
-            panY: false,
+            panX: true,
+            wheelX: "panX",
             layout: root.verticalLayout,
+            paddingLeft: 0,
         }),
     );
 
-    /* -------------------------- */
-    /* Axes                       */
-    /* -------------------------- */
+    /* --- Axes --- */
 
     xAxis = chart.xAxes.push(
         am5xy.DateAxis.new(root, {
             baseInterval: { timeUnit: "minute", count: 1 },
-            renderer: am5xy.AxisRendererX.new(root, {}),
+            startLocation: -0.1, // Adds half an interval of padding at the start
+            endLocation: 0.1, // Adds half an interval of padding at the end
+            extraMin: 0.01, // Adds 1% extra space to the left
+            extraMax: 0.01, // Adds 1% extra space to the right
+            renderer: am5xy.AxisRendererX.new(root, {
+                minGridDistance: 70,
+            }),
+            dateFormats: {
+                day: "HH:mm",
+                hour: "HH:mm",
+                minute: "HH:mm",
+            },
+            periodChangeDateFormats: {
+                day: "HH:mm",
+                hour: "HH:mm",
+                minute: "HH:mm",
+            },
         }),
     );
 
     yAxis = chart.yAxes.push(
         am5xy.CategoryAxis.new(root, {
             categoryField: "category",
-            renderer: am5xy.AxisRendererY.new(root, {}),
+            renderer: am5xy.AxisRendererY.new(root, {
+                inversed: true, // Keeps the "Sono" row at the top
+            }),
         }),
     );
 
-    // Clean look (important)
+    // Visual cleanup: Hide Y-axis labels and grid for a "single-bar" timeline look
     yAxis.get("renderer").labels.template.set("forceHidden", true);
     yAxis.get("renderer").grid.template.set("forceHidden", true);
 
-    /* -------------------------- */
-    /* Range Series (Intervals)   */
-    /* -------------------------- */
+    /* --- Range Series (The actual timeline bars) --- */
 
     rangeSeries = chart.series.push(
         am5xy.ColumnSeries.new(root, {
@@ -105,43 +122,42 @@ export function initSleepTimelineChart(containerId = "timeline-sleep-chart") {
             openValueXField: "start",
             valueXField: "end",
             categoryYField: "category",
+            sequencedInterpolation: true,
         }),
     );
 
     rangeSeries.columns.template.setAll({
-        height: am5.percent(60),
+        height: am5.percent(40), // Slimmer bar for a modern look
+        cornerRadiusTL: 4,
+        cornerRadiusTR: 4,
+        cornerRadiusBL: 4,
+        cornerRadiusBR: 4,
         strokeOpacity: 0,
         tooltipText:
-            "{label}\n{openValueX.formatDate('HH:mm')} - {valueX.formatDate('HH:mm')}",
+            "{label}: [bold]{openValueX.formatDate('HH:mm')} - {valueX.formatDate('HH:mm')}[/]",
     });
 
-    // Color adapter
-    rangeSeries.columns.template.adapters.add("fill", (_, target) => {
-        return target.dataItem.dataContext.color;
+    // Adapter for dynamic coloring
+    rangeSeries.columns.template.adapters.add("fill", (fill, target) => {
+        return target.dataItem.dataContext.color || fill;
     });
 
-    rangeSeries.columns.template.adapters.add("stroke", (_, target) => {
-        return target.dataItem.dataContext.color;
-    });
-
-    // Labels inside bars
-    rangeSeries.bullets.push(() =>
-        am5.Bullet.new(root, {
+    // Label inside the bars
+    rangeSeries.bullets.push(() => {
+        return am5.Bullet.new(root, {
             locationX: 0.5,
             sprite: am5.Label.new(root, {
                 text: "{label}",
-                populateText: true,
                 fill: am5.color(0xffffff),
                 centerX: am5.p50,
                 centerY: am5.p50,
-                fontSize: 12,
+                fontSize: 11,
+                populateText: true,
             }),
-        }),
-    );
+        });
+    });
 
-    /* -------------------------- */
-    /* Event Series (Markers)     */
-    /* -------------------------- */
+    /* --- Event Series (Icons/Markers) --- */
 
     eventSeries = chart.series.push(
         am5xy.LineSeries.new(root, {
@@ -149,33 +165,47 @@ export function initSleepTimelineChart(containerId = "timeline-sleep-chart") {
             yAxis,
             valueXField: "time",
             categoryYField: "category",
-            strokeOpacity: 0,
+            strokeOpacity: 0, // We only want the bullets
         }),
     );
 
-    eventSeries.bullets.push(() =>
-        am5.Bullet.new(root, {
-            locationX: 0,
-            sprite: am5.Container.new(root, {
+    eventSeries.bullets.push(() => {
+        const container = am5.Container.new(root, {
+            centerY: am5.p50,
+            centerX: am5.p50,
+        });
+
+        container.children.push(
+            am5.Circle.new(root, {
+                radius: 12,
+                fill: am5.color(0xffffff),
+                stroke: am5.color(0xe0e0e0),
+                strokeWidth: 1,
+                shadowColor: am5.color(0x000000),
+                shadowBlur: 4,
+                shadowOpacity: 0.1,
+            }),
+        );
+
+        container.children.push(
+            am5.Label.new(root, {
+                text: "{icon}",
+                populateText: true,
+                fontFamily: '"Font Awesome 6 Free", "Font Awesome 5 Free"', // Ensure this matches your FA version
+                fontWeight: "900", // Required for "Solid" icons
                 centerX: am5.p50,
                 centerY: am5.p50,
-                children: [
-                    am5.Circle.new(root, {
-                        radius: 7,
-                        fill: am5.color(0xffffff),
-                        stroke: am5.color(0x000000),
-                        strokeWidth: 2,
-                    }),
-                    am5.Label.new(root, {
-                        text: "{icon}",
-                        centerX: am5.p50,
-                        centerY: am5.p50,
-                        fontSize: 12,
-                    }),
-                ],
+                fontSize: 14,
+                fill: am5.color(0x495057), // Color the icon specifically
             }),
-        }),
-    );
+        );
+
+        return am5.Bullet.new(root, {
+            sprite: container,
+        });
+    });
+
+    chart.set("cursor", am5xy.XYCursor.new(root, { behavior: "none" }));
 }
 
 export function updateSleepTimeline(
@@ -184,18 +214,24 @@ export function updateSleepTimeline(
     sleepEdIdx,
     leaveBedIdx,
 ) {
-    if (!root || !rangeSeries || !eventSeries) return;
+    if (!root) return;
+
+    console.log({ getBedIdx, sleepStIdx, sleepEdIdx, leaveBedIdx });
 
     const baseDate = new Date();
+    baseDate.setHours(18, 0, 0, 0);
 
-    const getBed = toDate(parseTime(getBedIdx), baseDate);
-    const sleepStart = toDate(parseTime(sleepStIdx), baseDate);
+    const getBed = processTimeInput(getBedIdx, baseDate);
 
-    const isNextDay =
-        sleepEdIdx.includes("After") || leaveBedIdx.includes("After");
+    const ensureForward = (prevDate, currentStr, base) => {
+        let current = processTimeInput(currentStr, base);
+        if (current < prevDate) current.setDate(current.getDate() + 1);
+        return current;
+    };
 
-    const sleepEnd = toDate(parseTime(sleepEdIdx), baseDate, isNextDay);
-    const leaveBed = toDate(parseTime(leaveBedIdx), baseDate, isNextDay);
+    const sleepStart = ensureForward(getBed, sleepStIdx, baseDate);
+    const sleepEnd = ensureForward(sleepStart, sleepEdIdx, baseDate);
+    const leaveBed = ensureForward(sleepEnd, leaveBedIdx, baseDate);
 
     const timelineData = buildTimelineData(
         getBed,
@@ -203,17 +239,17 @@ export function updateSleepTimeline(
         sleepEnd,
         leaveBed,
     );
+    const eventData = [
+        { category: CATEGORY, time: getBed.getTime(), icon: "\uf236" }, // bed
+        { category: CATEGORY, time: sleepStart.getTime(), icon: "\uf186" }, // moon
+        { category: CATEGORY, time: sleepEnd.getTime(), icon: "\uf185" }, // sun
+        { category: CATEGORY, time: leaveBed.getTime(), icon: "\uf554" }, // walking
+    ];
 
-    const eventData = buildEventData(getBed, sleepStart, sleepEnd, leaveBed);
-
-    // Important: only one category
     yAxis.data.setAll([{ category: CATEGORY }]);
-
     rangeSeries.data.setAll(timelineData);
     eventSeries.data.setAll(eventData);
 
-    // Nice animation
-    rangeSeries.appear(800);
-    eventSeries.appear(800);
-    chart.appear(800, 100);
+    rangeSeries.appear(1000);
+    chart.appear(1000, 100);
 }
