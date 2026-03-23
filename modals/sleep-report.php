@@ -90,7 +90,7 @@ function render_component_list($dataArray, $componentName) {
                             
                             <div class="row g-3">
                                 <div class="col-12 col-lg-4">
-                                    <div id="health-score-pie" class="card w-100 h-100" style="min-height: 350px;"></div>
+                                    <div id="health-score-pie" class="card shadow-sm w-100 h-100" style="min-height: 325px;"></div>
                                 </div>
                                 <div class="col-12 col-lg-8">
                                     <div id="kpis-stats" class="row g-3 row-cols-1 row-cols-lg-2">

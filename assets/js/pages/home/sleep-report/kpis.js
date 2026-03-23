@@ -199,21 +199,14 @@ export const updateKPIs = (data) => {
 
     setValue(elements.sleep.times.bedExits, data.leaveBedCount, "vezes");
 
-    setValue(
-        elements.sleep.percent.deepSleepPercent,
-        sleepMap["深睡时长"]?.ratio,
-        "%",
-    );
-    setValue(
-        elements.sleep.percent.lightSleepPercent,
-        sleepMap["浅睡时长"]?.ratio,
-        "%",
-    );
-    setValue(
-        elements.sleep.percent.remPercent,
-        sleepMap["眼动时长"]?.ratio,
-        "%",
-    );
+    // ? REM ratio missing from the API
+    const deepSleepRatio = Number(sleepMap["深睡时长"]?.ratio || 0);
+    const lightSleepRatio = Number(sleepMap["浅睡时长"]?.ratio || 0);
+    const remRatio = 100 - deepSleepRatio - lightSleepRatio;
+
+    setValue(elements.sleep.percent.deepSleepPercent, deepSleepRatio, "%");
+    setValue(elements.sleep.percent.lightSleepPercent, lightSleepRatio, "%");
+    setValue(elements.sleep.percent.remPercent, remRatio, "%");
 
     // === Heart Rate ===
     setValue(elements.heartRate.bpm.min, data.heartRateVo?.min, "BPM");

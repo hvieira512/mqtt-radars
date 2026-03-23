@@ -28,7 +28,7 @@ $metaId = $metaId ?? null;
 
             <?php if ($meta): ?>
                 <div
-                    class="text-end small lh-sm"
+                    class="text-end small lh-sm text-muted"
                     <?= $metaId ? "id='$metaId'" : '' ?>>
                     <?= $meta ?>
                 </div>
