@@ -26,6 +26,18 @@ const modal = document.getElementById("sleepReportModal");
 const container = modal?.querySelector(".modal-body");
 const radarName = document.getElementById("device-name-model-sleep-report");
 const dateField = document.getElementById("pick-date-field");
+const noDataState = document.getElementById("no-data-state");
+const reportContent = document.getElementById("report-content-wrapper");
+
+const toggleEmptyState = (isEmpty) => {
+    if (isEmpty) {
+        noDataState?.classList.remove("d-none");
+        reportContent?.classList.add("d-none");
+    } else {
+        noDataState?.classList.add("d-none");
+        reportContent?.classList.remove("d-none");
+    }
+};
 
 let currentDevice = { id: null, name: null };
 
@@ -38,11 +50,20 @@ const fetchReport = async (uid, name, date) => {
 
     try {
         renderLoading(container);
+        toggleEmptyState(false);
 
         const params = { uid, date, lang: "en_US" };
-        const { data } = await getRequest("radar/monitor/report", params);
-        if (radarName) radarName.textContent = `${name} | ${uid}`;
+        const response = await getRequest("radar/monitor/report", params);
 
+        const data = response.data || response;
+        if (data?.code === 500 || !data) {
+            toggleEmptyState(true);
+            if (radarName) radarName.textContent = `${name} | ${uid}`;
+            return;
+        }
+
+        toggleEmptyState(false);
+        if (radarName) radarName.textContent = `${name} | ${uid}`;
         updateHealthScoreChart(data.score, data.scoreLabel);
         updateSleepChart(data.statisticalData);
         data.breathKPIs = updateBreatheChart(data);
@@ -56,10 +77,10 @@ const fetchReport = async (uid, name, date) => {
         );
         updateDaytimeActivityChart(data);
 
-        console.log(data);
         updateKPIs(data);
     } catch (error) {
         console.error("[SleepReport] Fetch error:", error);
+        toggleEmptyState(true);
         toast.error("Erro ao carregar o relatório de sono");
     } finally {
         removeLoading(container);
