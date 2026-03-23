@@ -31,7 +31,7 @@ const setReportVisibility = (hasData) => {
 };
 
 const updateDeviceHeader = (id, name) => {
-    DOM.radarName?.textContent = `${name} | ${id}`;
+    if (DOM.radarName) DOM.radarName.textContent = `${name} | ${id}`;
 };
 
 const refreshCharts = (data) => {

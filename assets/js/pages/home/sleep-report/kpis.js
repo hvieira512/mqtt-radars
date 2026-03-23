@@ -3,6 +3,27 @@ import { animateNumber } from "../../../utils.js";
 let elements = {};
 const previousValues = new WeakMap();
 
+const renderEvaluation = (status) => {
+    if (!status) return "";
+
+    const s = status.toLowerCase();
+
+    if (s.includes("no compliance")) {
+        return `<span class="text-danger"><i class="fa-solid fa-circle-xmark"></i> Não Conformidade</span>`;
+    }
+
+    if (s.includes("compliance")) {
+        return `<span class="text-success"><i class="fa-solid fa-circle-check"></i> Conformidade</span>`;
+    }
+
+    // Fallback for custom text like "Your sleep duration is..."
+    return `<span>${status}</span>`;
+};
+
+const setMetaValue = (el, html) => {
+    if (el) el.innerHTML = html;
+};
+
 const formatKPI = (value, unit) => {
     if (value === null || value === undefined || value === "-") return "-";
 
@@ -71,6 +92,16 @@ export const initKPIElements = () => {
             ahi: document.getElementById("ahi-value"),
             breathRate: document.getElementById("breath-rate-value"),
             heartRate: document.getElementById("heart-rate-value"),
+            meta: {
+                sleepDuration: document.getElementById("sleep-duration-meta"),
+                leaveBed: document.getElementById("leave-bed-meta"),
+                deepSleep: document.getElementById(
+                    "deep-sleep-percentage-meta",
+                ),
+                ahi: document.getElementById("ahi-meta"),
+                heartRate: document.getElementById("heart-rate-meta"),
+                breathRate: document.getElementById("breath-rate-meta"),
+            },
         },
         sleep: {
             hours: {
@@ -127,6 +158,7 @@ export const updateKPIs = (data) => {
     if (!data) return;
 
     const sleepMap = mapSleepData(data.sleepIndexCommonList);
+    const evalData = data.evaluation || [];
 
     // === General ===
     setValue(elements.general.sleepDuration, data.sleepTotalTime);
@@ -139,6 +171,24 @@ export const updateKPIs = (data) => {
     setValue(elements.general.ahi, data.ahi);
     setValue(elements.general.breathRate, data.breathRateVo?.avg, "BPM");
     setValue(elements.general.heartRate, data.heartRateVo?.avg, "BPM");
+
+    // === General Meta (Evaluations) ===
+    setMetaValue(
+        elements.general.meta.sleepDuration,
+        renderEvaluation(evalData.sleepDurationEvaluation),
+    );
+    setMetaValue(
+        elements.general.meta.leaveBed,
+        renderEvaluation(evalData.sleepLeaveBedEvaluation),
+    );
+    setMetaValue(
+        elements.general.meta.deepSleep,
+        renderEvaluation(evalData.sleepDeepRatioEvaluation),
+    );
+    setMetaValue(
+        elements.general.meta.ahi,
+        renderEvaluation(evalData.ahiUnqualifiedEvaluation),
+    );
 
     // === Sleep ===
     setValue(elements.sleep.hours.deepSleep, sleepMap["深睡时长"]?.value);
