@@ -91,3 +91,45 @@ export const animateNumber = ({ from, to, duration = 700, onUpdate }) => {
 
     requestAnimationFrame(frame);
 };
+
+export const getFirstDayOfMonth = (dateStr) => {
+    let year, month;
+
+    if (!dateStr) {
+        const today = new Date();
+        year = today.getFullYear();
+        month = today.getMonth(); // 0-indexed
+    } else if (dateStr.includes("/")) {
+        // parse DD/MM/YYYY
+        const parts = dateStr.split("/");
+        if (parts.length !== 3) {
+            const today = new Date();
+            year = today.getFullYear();
+            month = today.getMonth();
+        } else {
+            const [day, mon, yr] = parts;
+            year = parseInt(yr, 10);
+            month = parseInt(mon, 10) - 1; // 0-indexed
+        }
+    } else if (dateStr.includes("-")) {
+        // parse YYYY-MM-DD
+        const parts = dateStr.split("-");
+        if (parts.length !== 3) {
+            const today = new Date();
+            year = today.getFullYear();
+            month = today.getMonth();
+        } else {
+            const [yr, mon] = parts;
+            year = parseInt(yr, 10);
+            month = parseInt(mon, 10) - 1;
+        }
+    } else {
+        // fallback
+        const today = new Date();
+        year = today.getFullYear();
+        month = today.getMonth();
+    }
+
+    const d = new Date(year, month, 1); // first day of month
+    return d.toISOString().split("T")[0]; // "YYYY-MM-DD"
+};

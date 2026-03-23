@@ -17,7 +17,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.22/dist/sweetalert2.min.css">
     <!-- AG Grid -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ag-grid-community/styles/ag-theme-quartz.css">
-
+    <!-- Flatpickr -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" href="./assets/css/styles.css">
 </head>
 
@@ -42,11 +43,17 @@
     <script src="https://cdn.amcharts.com/lib/5/percent.js"></script>
     <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
     <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+    <!-- Sweet Alerts -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.22/dist/sweetalert2.all.min.js"></script>
     <!-- AG Grid -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ag-grid-enterprise/34.2.0/ag-grid-enterprise.min.js"
         integrity="sha512-aE+oj9Z0B9knKrq4Torrb8AlXMuaZNXJ9LvxXfv5stq5xbwVGuVgopQE5Ql10nQMNiFMwkSyvHFQQKkwy1xh/g=="
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <!-- Flatpickr -->
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/pt.js"></script>
+
     <script type="module" src="./assets/js/pages/home/main.js"></script>
 </body>
 

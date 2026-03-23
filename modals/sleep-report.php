@@ -69,7 +69,12 @@ function render_component_list($dataArray, $componentName) {
 
                     <div class="d-flex align-items-end justify-content-between flex-wrap gap-3 mb-3">
                         <span id="device-name-model-sleep-report"></span>
-                        <input type="date" id="pick-date-field" class="form-control w-auto">
+                        <div class="input-group w-auto">
+                            <span class="input-group-text rounded-start">
+                                <i class="fa-solid fa-calendar mx-auto"></i>
+                            </span>
+                            <input type="text" id="pick-date-field" class="form-control rounded-0 rounded-end" placeholder="Selecione uma data">
+                        </div>
                     </div>
 
                     <div id="no-data-state" class="d-none card bg-light text-center py-5">

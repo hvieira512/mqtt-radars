@@ -1,6 +1,10 @@
 import { getRequest } from "../../../auth.js";
 import toast from "../../../toastr.js";
-import { removeLoading, renderLoading } from "../../../utils.js";
+import {
+    getFirstDayOfMonth,
+    removeLoading,
+    renderLoading,
+} from "../../../utils.js";
 
 import * as Breathe from "./charts/breathe.js";
 import * as Daytime from "./charts/daytime.js";
@@ -10,6 +14,7 @@ import * as Sleep from "./charts/sleep.js";
 import * as Timeline from "./charts/timeline-sleep.js";
 import { initKPIElements, updateKPIs } from "./kpis.js";
 import * as Suggestion from "./suggestions.js";
+import * as DatePicker from "./date-picker.js";
 
 const DOM = {
     modal: document.getElementById("sleepReportModal"),
@@ -73,11 +78,22 @@ const fetchReport = async (uid, name, date) => {
     try {
         renderLoading(DOM.container);
 
-        const params = { uid, date, lang: "en_US" };
-        const response = await getRequest("radar/monitor/report", params);
+        const reportParams = { uid, date, lang: "en_US" };
+        const response = await getRequest("radar/monitor/report", reportParams);
         const data = response.data || response;
 
         updateDeviceHeader(uid, name);
+
+        const firstDayOfMonth = getFirstDayOfMonth(date);
+        const daysParams = { uid, date: firstDayOfMonth, lang: "en_US" };
+
+        const daysResponse = await getRequest(
+            "radar/monitor/reportDays",
+            daysParams,
+        );
+        const daysData = daysResponse.data || daysResponse;
+
+        DatePicker.updateCalendar(daysData);
 
         if (date === today && currentHour < 8) toast.info(isDueMessage);
 
@@ -114,6 +130,7 @@ const handleDateChange = () => {
 export const initSleepReportModal = () => {
     if (!DOM.modal) return;
 
+    DatePicker.initCalendar();
     HealthScore.initHealthScoreChart();
     Sleep.initSleepChart();
     Breathe.initBreatheChart();

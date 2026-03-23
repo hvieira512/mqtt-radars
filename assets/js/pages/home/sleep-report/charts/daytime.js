@@ -80,8 +80,6 @@ export const updateDaytimeActivityChart = (data) => {
 
     const activity = data.userActivity;
 
-    console.log(activity);
-
     // Prepare data for pie (use ratios for slice size)
     const chartData = [
         {
