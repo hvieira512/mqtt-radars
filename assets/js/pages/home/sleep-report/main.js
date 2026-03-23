@@ -23,6 +23,7 @@ const DOM = {
 };
 
 let currentDevice = { id: null, name: null };
+let isDueMessage = "O relatório de hoje deverá ser entregue após as 8h";
 
 const getToday = () => new Date().toISOString().split("T")[0];
 
@@ -35,7 +36,7 @@ const updateDeviceHeader = (id, name) => {
     if (DOM.radarName) DOM.radarName.textContent = `${name} | ${id}`;
 };
 
-const refreshCharts = (data) => {
+const refreshData = (data) => {
     HealthScore.updateHealthScoreChart(data.score, data.scoreLabel);
     Sleep.updateSleepChart(data.statisticalData);
 
@@ -65,21 +66,28 @@ const refreshCharts = (data) => {
 const fetchReport = async (uid, name, date) => {
     if (!uid) return;
 
+    const today = getToday();
+    const now = new Date();
+    const currentHour = now.getHours();
+
     try {
         renderLoading(DOM.container);
+
         const params = { uid, date, lang: "en_US" };
         const response = await getRequest("radar/monitor/report", params);
         const data = response.data || response;
 
         updateDeviceHeader(uid, name);
 
-        if (!data || data.code === 500) {
+        if (date === today && currentHour < 8) toast.info(isDueMessage);
+
+        if (!data.score || data.code === 500) {
             setReportVisibility(false);
             return;
         }
 
         setReportVisibility(true);
-        refreshCharts(data);
+        refreshData(data);
     } catch (error) {
         console.error("[SleepReport] Fetch error:", error);
         setReportVisibility(false);
