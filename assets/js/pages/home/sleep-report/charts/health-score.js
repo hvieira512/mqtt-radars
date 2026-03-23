@@ -4,6 +4,15 @@ let healthScoreRoot;
 let scoreSlice;
 let remainingSlice;
 
+const labelTranslations = {
+    Poor: "Fraco",
+    "Below average": "Abaixo da Média",
+    Average: "Média",
+    Good: "Bom",
+    Excellent: "Excelente",
+    "Very good": "Muito Bom",
+};
+
 export const initHealthScoreChart = () => {
     healthScoreRoot = am5.Root.new("health-score-pie");
     healthScoreRoot._logo?.dispose();
@@ -105,7 +114,9 @@ export const updateHealthScoreChart = (score, grade) => {
     const remainingSlice = healthScoreSeries.dataItems[0];
     remainingSlice.set("fill", am5.color(0xe9ecef));
 
+    const translatedGrade = labelTranslations[grade] || grade;
+
     // Update center labels
     healthScoreCenterLabel.scoreLabel.set("text", `${numericScore}`);
-    healthScoreCenterLabel.gradeLabel.set("text", grade);
+    healthScoreCenterLabel.gradeLabel.set("text", translatedGrade);
 };
