@@ -1,5 +1,3 @@
-// sleep-chart.js
-
 const SLEEP_STATUS = {
     1: { label: "Sono leve", color: 0x80c0ff },
     2: { label: "Acordado", color: 0xc0c0c0 },
