@@ -2,6 +2,18 @@ let daytimeChart = null;
 let daytimeSeries = null;
 let centerLabel = null;
 
+const formatTime = (timeString) => {
+    if (!timeString || typeof timeString !== "string") return "0m";
+
+    const parts = timeString.split(":");
+
+    const hours = parseInt(parts[0], 10) || 0;
+    const minutes = parseInt(parts[1], 10) || 0;
+
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    return `${minutes}m`;
+};
+
 export const initDaytimeActivityChart = (
     container = "daytime-activity-chart",
 ) => {
@@ -68,22 +80,24 @@ export const updateDaytimeActivityChart = (data) => {
 
     const activity = data.userActivity;
 
+    console.log(activity);
+
     // Prepare data for pie (use ratios for slice size)
     const chartData = [
         {
             category: "Andar",
             value: Number(activity.walkDurationRatio),
-            duration: activity.walkDuration,
+            duration: formatTime(activity.walkDuration),
         },
         {
             category: "Parado",
             value: Number(activity.staticDurationRatio),
-            duration: activity.staticDuration,
+            duration: formatTime(activity.staticDuration),
         },
         {
             category: "Outro",
             value: Number(activity.otherDurationRatio),
-            duration: activity.otherDuration,
+            duration: formatTime(activity.otherDuration),
         },
     ];
 
@@ -98,6 +112,6 @@ export const updateDaytimeActivityChart = (data) => {
     });
 
     // Update center value
-    if (centerLabel)
-        centerLabel.set("text", `No quarto\n${activity.inRoomDuration}`);
+    const formattedInRoom = formatTime(activity.inRoomDuration);
+    if (centerLabel) centerLabel.set("text", `No quarto\n${formattedInRoom}`);
 };
