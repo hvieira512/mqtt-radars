@@ -142,7 +142,7 @@ function render_component_list($dataArray, $componentName) {
                                         <div id="daytime-activity-chart" class="w-100 h-100 mb-3" style="min-height: 350px;"></div>
                                     </div>
                                     <div class="col">
-                                        <div class="row g-3 row-cols-1">
+                                        <div class="row g-3 row-cols-1 my-auto">
                                              <?php render_component_list($daytimeActivityKPIs, 'kpi-card'); ?>
                                         </div>
                                     </div>
