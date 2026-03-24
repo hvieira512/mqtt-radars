@@ -9,6 +9,7 @@ $id = $id ?? null;
 $statId = $statId ?? null;
 $meta = $meta ?? null;
 $metaId = $metaId ?? null;
+$tooltip = $tooltip ?? null;
 ?>
 
 <div class="card shadow-sm" <?= $id ? "id='$id'" : '' ?>>
@@ -19,6 +20,11 @@ $metaId = $metaId ?? null;
                 <i class="fa-solid <?= $icon ?> text-<?= $color ?>"></i>
             </div>
             <span class="fw-semibold text-muted"><?= $label ?></span>
+            <?php if ($tooltip): ?>
+                <span role="button" class="d-inline-flex justify-content-center align-items-center bg-primary rounded-circle" style="min-width: 1.25rem; min-height: 1.25rem;" data-bs-toggle="tooltip" data-bs-placement="top" title="<?= htmlspecialchars($tooltip) ?>">
+                    <i class="fa-solid fa-question text-white mx-auto" style="font-size: 10px;"></i>
+                </span>
+            <?php endif; ?>
         </div>
 
         <div class="d-flex justify-content-between align-items-center flex-wrap">

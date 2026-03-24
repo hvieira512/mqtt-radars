@@ -83,3 +83,6 @@ const renderDevicesList = async () => {
 
 await renderDevicesList();
 initSleepReportModal();
+
+const toolstips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+[...toolstips].map((el) => new bootstrap.Tooltip(el));

@@ -1,4 +1,3 @@
-// 1. Configuração de Status e Cores (Igual)
 const SLEEP_STATUS = {
     3: { label: "Saída da Cama", color: 0x003366 },
     2: { label: "Acordado", color: 0xc0c0c0 },
@@ -36,6 +35,7 @@ export function initSleepChart() {
     const xAxis = chart.xAxes.push(
         am5xy.DateAxis.new(root, {
             baseInterval: { timeUnit: "minute", count: 1 },
+            endLocation: 0.1,
             renderer: am5xy.AxisRendererX.new(root, {
                 minGridDistance: 50,
                 // OPCIONAL: Se quiseres limpar a grelha vertical também:
