@@ -1,21 +1,26 @@
+// 1. Configuração de Status e Cores (Igual)
 const SLEEP_STATUS = {
-    1: { label: "Sono leve", color: 0x80c0ff },
+    3: { label: "Saída da Cama", color: 0x003366 },
     2: { label: "Acordado", color: 0xc0c0c0 },
-    3: { label: "Sono profundo", color: 0x003366 },
     7: { label: "REM", color: 0xff9933 },
+    1: { label: "Sono leve", color: 0x80c0ff },
+    0: { label: "Sono profundo", color: 0x744596 },
 };
 
 const STATUS_TO_Y = {
-    2: 3, // Acordado → top
-    1: 2, // Sono leve → middle-upper
-    7: 1, // REM → middle-lower
-    3: 0, // Sono profundo → bottom
+    3: 4,
+    2: 3,
+    7: 2,
+    1: 1,
+    0: 0,
 };
 
 let chartComponents = null;
 let sleepSeries = null;
 
-function createSleepChart() {
+export function initSleepChart() {
+    if (chartComponents) return;
+
     const root = am5.Root.new("sleep-chart");
     root._logo?.dispose();
 
@@ -23,85 +28,84 @@ function createSleepChart() {
         am5xy.XYChart.new(root, {
             panX: false,
             panY: false,
-            wheelX: "none",
-            wheelY: "none",
             layout: root.verticalLayout,
         }),
     );
 
-    // ─── X Axis (time) ───────────────────────────────────────
+    // --- Eixo X ---
     const xAxis = chart.xAxes.push(
         am5xy.DateAxis.new(root, {
             baseInterval: { timeUnit: "minute", count: 1 },
             renderer: am5xy.AxisRendererX.new(root, {
-                minGridDistance: 50, // prevent too dense labels
-            }),
-            tooltip: am5.Tooltip.new(root, {
-                labelText: "{valueX.formatDate('HH:mm')}", // axis tooltip shows time
+                minGridDistance: 50,
+                // OPCIONAL: Se quiseres limpar a grelha vertical também:
+                // strokeOpacity: 0.1
             }),
         }),
     );
 
-    // Make X-axis labels visible and nicely formatted
-    xAxis.get("renderer").labels.template.setAll({
-        fontSize: "0.85em",
-        rotation: -45,
-        centerY: am5.p50,
-        textAlign: "right",
-        paddingRight: 8,
-        paddingLeft: 8,
-        maxPosition: 0.98, // prevent last label cutoff
-        minPosition: 0.02,
+    // --- Eixo Y (O SEGREDO ESTÁ AQUI) ---
+    const yRenderer = am5xy.AxisRendererY.new(root, {
+        strokeOpacity: 0.1,
+        minGridDistance: 1,
+        inside: false,
     });
 
-    // Format labels: e.g. 22:30, 23:00, etc.
-    xAxis
-        .get("renderer")
-        .labels.template.adapters.add("text", function (text, target) {
-            return target.dataItem?.value
-                ? am5.time.formatDate(new Date(target.dataItem.value), "HH:mm")
-                : text;
-        });
+    // 1. DESATIVAR AS LINHAS DE GRELHA PADRÃO DO EIXO Y
+    // Isso remove aquelas "várias grelhas" que estás a ver no fundo
+    yRenderer.grid.template.setAll({
+        forceHidden: true,
+    });
 
-    // ─── Y Axis (sleep stages) ───────────────────────────────
+    // 2. DESATIVAR AS LABELS PADRÃO
+    yRenderer.labels.template.setAll({
+        forceHidden: true,
+    });
+
     const yAxis = chart.yAxes.push(
         am5xy.ValueAxis.new(root, {
             min: 0,
-            max: 4,
+            max: 5,
             strictMinMax: true,
-            renderer: am5xy.AxisRendererY.new(root, {
-                minGridDistance: 40,
-                strokeOpacity: 0.15,
-            }),
+            renderer: yRenderer,
         }),
     );
 
-    yAxis.get("renderer").labels.template.set("forceHidden", true);
-
+    // 3. Labels Manuais (Só estas linhas serão desenhadas agora)
     const stageLabels = [
-        { y: 0.5, text: "Sono profundo", color: 0x002244 },
-        { y: 1.5, text: "REM", color: 0xcc7700 },
-        { y: 2.5, text: "Sono leve", color: 0x4070cc },
-        { y: 3.5, text: "Acordado", color: 0x555555 },
+        { value: 4.5, text: "Saída da Cama", color: 0x003366 },
+        { value: 3.5, text: "Acordado", color: 0x555555 },
+        { value: 2.5, text: "REM", color: 0xcc7700 },
+        { value: 1.5, text: "Sono leve", color: 0x4070cc },
+        { value: 0.5, text: "Sono profundo", color: 0x744596 },
     ];
 
-    stageLabels.forEach(({ y, text, color }) => {
-        const range = yAxis.createAxisRange(yAxis.makeDataItem({ value: y }));
+    stageLabels.forEach((stage) => {
+        const rangeDataItem = yAxis.makeDataItem({ value: stage.value });
+        const range = yAxis.createAxisRange(rangeDataItem);
+
         range.get("label").setAll({
-            text: text,
-            fontSize: "0.95em",
-            fontWeight: "500",
-            fill: am5.color(color),
-            centerY: am5.p50,
-            textAlign: "right",
-            paddingRight: 12,
+            text: stage.text,
+            fill: am5.color(stage.color),
+            fontSize: "12px",
+            fontWeight: "bold",
+            centerX: am5.p100,
+            paddingRight: 15,
+            visible: true,
             forceHidden: false,
         });
-        range.get("grid").set("forceHidden", true);
-        range.get("tick").set("forceHidden", true);
+
+        // Estas são as únicas linhas que vais ver no fundo (as pontilhadas)
+        range.get("grid").setAll({
+            strokeOpacity: 0.2, // Um pouco mais visível agora que o resto saiu
+            strokeDasharray: [3, 3],
+            location: 1,
+            visible: true,
+            forceHidden: false,
+        });
     });
 
-    // ─── Column Series ───────────────────────────────────────
+    // --- Série (O resto do código é igual) ---
     sleepSeries = chart.series.push(
         am5xy.ColumnSeries.new(root, {
             xAxis: xAxis,
@@ -115,96 +119,50 @@ function createSleepChart() {
 
     sleepSeries.columns.template.setAll({
         strokeOpacity: 0,
-        cornerRadiusTL: 0,
-        cornerRadiusTR: 0,
-        cornerRadiusBL: 0,
-        cornerRadiusBR: 0,
-        tooltipY: am5.percent(50), // center tooltip vertically
+        width: am5.percent(100),
+        tooltipText: "{statusText}: {startTimeFormatted} - {endTimeFormatted}",
     });
 
-    sleepSeries.columns.template.set("tooltipText", "");
-
-    sleepSeries.columns.template.adapters.add(
-        "tooltipText",
-        function (_, target) {
-            const dc = target.dataItem?.dataContext;
-            if (!dc) return "";
-
-            const start = new Date(dc.startTime);
-            const end = new Date(dc.endTime);
-
-            const formatTime = (date) => {
-                const hours = String(date.getHours()).padStart(2, "0");
-                const minutes = String(date.getMinutes()).padStart(2, "0");
-                return `${hours}:${minutes}`;
-            };
-
-            const startStr = formatTime(start);
-            const endStr = formatTime(end);
-
-            const durationMin = Math.round((dc.endTime - dc.startTime) / 60000);
-
-            const hours = Math.floor(durationMin / 60);
-            const minutes = durationMin % 60;
-
-            const durationStr =
-                hours > 0 ? `${hours}h ${minutes}min` : `${minutes}min`;
-
-            const status = SLEEP_STATUS[dc.status]?.label || "Desconhecido";
-
-            return `${startStr} - ${endStr} | ${status} - ${durationStr}`;
-        },
-    );
-
-    // Colors from data
-    sleepSeries.columns.template.adapters.add("fill", function (fill, target) {
+    sleepSeries.columns.template.adapters.add("fill", (fill, target) => {
         return target.dataItem?.dataContext?.fill ?? fill;
     });
 
-    sleepSeries.columns.template.adapters.add(
-        "stroke",
-        function (stroke, target) {
-            return target.dataItem?.dataContext?.fill ?? stroke;
-        },
-    );
-
     chartComponents = { root, chart, xAxis, yAxis };
     return chartComponents;
-}
-
-export function initSleepChart() {
-    if (chartComponents) return;
-    createSleepChart();
 }
 
 export function updateSleepChart(data) {
     if (!sleepSeries || !data?.length) return;
 
     const chartData = data.map((item) => {
-        const status = item.status;
-        const y = STATUS_TO_Y[status] ?? 0;
-        const stage = SLEEP_STATUS[status] || { color: 0x999999 };
+        const statusKey = parseInt(item.status);
+        const yPos = STATUS_TO_Y[statusKey] ?? 0;
+        const config = SLEEP_STATUS[statusKey] || {
+            label: "Desconhecido",
+            color: 0x999999,
+        };
+
+        const start = new Date(item.startTime);
+        const end = new Date(item.endTime);
 
         return {
-            status: status, // needed for tooltip
-            startTime: new Date(item.startTime).getTime(),
-            endTime: new Date(item.endTime).getTime(),
-            y1: y,
-            y2: y + 1,
-            fill: am5.color(stage.color),
+            status: statusKey,
+            statusText: config.label,
+            startTime: start.getTime(),
+            endTime: end.getTime(),
+            startTimeFormatted: chartComponents.root.dateFormatter.format(
+                start,
+                "HH:mm",
+            ),
+            endTimeFormatted: chartComponents.root.dateFormatter.format(
+                end,
+                "HH:mm",
+            ),
+            y1: yPos,
+            y2: yPos + 1,
+            fill: am5.color(config.color),
         };
     });
 
     sleepSeries.data.setAll(chartData);
-
-    // Optional: zoom to data range if needed
-    // chartComponents.chart.zoomToIndexes(0, chartData.length - 1, false);
-}
-
-export function disposeSleepChart() {
-    if (chartComponents?.root) {
-        chartComponents.root.dispose();
-        chartComponents = null;
-        sleepSeries = null;
-    }
 }
