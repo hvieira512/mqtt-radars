@@ -19,7 +19,7 @@ $tooltip = $tooltip ?? null;
             <div class="bg-<?= $color ?> bg-opacity-10 rounded d-flex align-items-center justify-content-center" style="width: 2rem; height: 2rem;">
                 <i class="fa-solid <?= $icon ?> text-<?= $color ?>"></i>
             </div>
-            <span class="fw-semibold text-muted"><?= $label ?></span>
+            <span class="flex-grow-1 fw-semibold text-muted"><?= $label ?></span>
             <?php if ($tooltip): ?>
                 <span role="button" class="d-inline-flex justify-content-center align-items-center bg-primary rounded-circle" style="min-width: 1.25rem; min-height: 1.25rem;" data-bs-toggle="tooltip" data-bs-placement="top" title="<?= htmlspecialchars($tooltip) ?>">
                     <i class="fa-solid fa-question text-white mx-auto" style="font-size: 10px;"></i>
