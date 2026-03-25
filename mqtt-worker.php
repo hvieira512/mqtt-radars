@@ -67,6 +67,7 @@ function broadcastToWebsocket(array $payload): void
         CURLOPT_POSTFIELDS     => json_encode($payload),
     ]);
     curl_exec($ch);
+    curl_close($ch);
 }
 
 /**
@@ -168,6 +169,7 @@ function handleMqttMessage(string $message): void
     }
 
     if (!empty($broadcast)) {
+        Logger::info("Broadcasting " . count($broadcast) . " messages to websocket");
         broadcastToWebsocket($broadcast);
     }
 }

@@ -16,8 +16,8 @@ class PositionAlarms implements AlarmInterface
             $regionId    = $person['region_id'] ?? null;
 
             $alarmsMap = [
-                'Fall Confirmation' => ['fall_confirmed', 'danger', "Queda confirmada"],
-                'Confirmed Sitting on Ground' => ['sitting_confirmed', 'danger', "Pessoa sentada no chão"],
+                'Fall Confirmation' => ['fall_confirmed', 'perigo', "Queda confirmada"],
+                'Confirmed Sitting on Ground' => ['sitting_confirmed', 'perigo', "Pessoa sentada no chão"],
             ];
 
             if (isset($alarmsMap[$posture])) {

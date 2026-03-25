@@ -34,7 +34,6 @@ try {
         new SleepReportRepository(),
         new DeviceRepository(),
         new UserDeviceRepository(),
-        $pdo,
         $config
     );
 

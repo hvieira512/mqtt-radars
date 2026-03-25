@@ -17,8 +17,8 @@ class DetectionRepository
     public function insertDetection(array $data): void
     {
         $stmt = $this->db->prepare("
-            INSERT INTO radar_detections
-            (event_id, device_id, category, type, level, source, person_index, region_id, message)
+            INSERT INTO radar_detecoes
+            (evento_id, dispositivo_id, categoria, tipo, nivel, origem, indice_pessoa, regiao_id, mensagem)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
@@ -37,12 +37,12 @@ class DetectionRepository
     public function resolveDetection($deviceId, $personIndex, $type): void
     {
         $stmt = $this->db->prepare("
-            UPDATE radar_detections
-            SET resolved_at = NOW()
-            WHERE device_id = ?
-              AND type = ?
-              AND person_index <=> ?
-              AND resolved_at IS NULL
+            UPDATE radar_detecoes
+            SET resolvido_em = NOW()
+            WHERE dispositivo_id = ?
+              AND tipo = ?
+              AND indice_pessoa <=> ?
+              AND resolvido_em IS NULL
         ");
         $stmt->execute([$deviceId, $type, $personIndex]);
     }

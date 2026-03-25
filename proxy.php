@@ -37,7 +37,6 @@ $sleepService = new SleepReportService(
     new SleepReportRepository(),
     new DeviceRepository(),
     new UserDeviceRepository(),
-    $pdo,
     $config
 );
 

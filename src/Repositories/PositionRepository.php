@@ -17,8 +17,8 @@ class PositionRepository
     public function insertPosition(int $eventId, array $people): void
     {
         $stmt = $this->db->prepare("
-            INSERT INTO radar_position_people
-            (event_id, person_index, x_position_dm, y_position_dm, z_position_cm, time_left_seconds, posture_state, last_event, region_id)
+            INSERT INTO radar_posicao_pessoas
+            (evento_id, indice_pessoa, posicao_x_dm, posicao_y_dm, posicao_z_cm, tempo_restante_seg, estado_postura, ultimo_evento, regiao_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 

@@ -16,7 +16,17 @@ const themes = {
         customClass: { popup: "toast-danger" },
     },
 
+    perigo: {
+        icon: "error",
+        customClass: { popup: "toast-danger" },
+    },
+
     warning: {
+        icon: "warning",
+        customClass: { popup: "toast-warning" },
+    },
+
+    aviso: {
         icon: "warning",
         customClass: { popup: "toast-warning" },
     },

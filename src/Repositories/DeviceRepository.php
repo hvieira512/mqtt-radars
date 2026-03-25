@@ -17,7 +17,7 @@ class DeviceRepository
     public function getDeviceId(string $deviceCode): int
     {
         $stmt = $this->db->prepare("
-            INSERT INTO devices (device_code)
+            INSERT INTO dispositivos (codigo_dispositivo)
             VALUES (?)
             ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
         ");
@@ -29,10 +29,10 @@ class DeviceRepository
     public function getActiveDevices(): array
     {
         $stmt = $this->db->query("
-            SELECT d.device_code, d.id 
-            FROM devices d
-            JOIN user_devices ud ON ud.device_id = d.id
-            WHERE ud.is_active = 1
+            SELECT d.codigo_dispositivo, d.id 
+            FROM dispositivos d
+            JOIN utilizador_dispositivos ud ON ud.dispositivo_id = d.id
+            WHERE ud.ativo = 1
         ");
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
