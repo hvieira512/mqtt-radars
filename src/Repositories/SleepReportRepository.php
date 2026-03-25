@@ -7,9 +7,10 @@ use App\Database;
 
 class SleepReportRepository
 {
-    private PDO $db;    
+    private PDO $db;
 
-    public function __construct() {
+    public function __construct()
+    {
         $this->db = Database::connection();
     }
 
@@ -49,3 +50,4 @@ class SleepReportRepository
         ]);
     }
 }
+
