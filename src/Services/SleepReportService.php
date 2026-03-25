@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Repositories\SleepReportRepository;
 use App\Repositories\DeviceRepository;
 use App\Repositories\UserDeviceRepository;
-use PDO;
 use Exception;
 
 class SleepReportService
@@ -14,7 +13,6 @@ class SleepReportService
         private SleepReportRepository $sleepRepo,
         private DeviceRepository $deviceRepo,
         private UserDeviceRepository $userDeviceRepo,
-        private PDO $pdo,
         private array $config
     ) {}
 
@@ -57,14 +55,7 @@ class SleepReportService
 
     public function syncForDate(string $date): void
     {
-        // Get all active devices
-        $stmt = $this->pdo->query("
-            SELECT d.device_code, d.id 
-            FROM devices d
-            JOIN user_devices ud ON ud.device_id = d.id
-            WHERE ud.is_active = 1
-        ");
-        $devices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $devices = $this->deviceRepo->getActiveDevices();
 
         foreach ($devices as $device) {
             try {
@@ -101,13 +92,7 @@ class SleepReportService
 
     public function syncAllDevices(): void
     {
-        $stmt = $this->pdo->query("
-            SELECT d.device_code 
-            FROM devices d
-            JOIN user_devices ud ON ud.device_id = d.id
-            WHERE ud.is_active = 1
-        ");
-        $devices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $devices = $this->deviceRepo->getActiveDevices();
 
         foreach ($devices as $device) {
             $this->syncDeviceHistory($device['device_code']);

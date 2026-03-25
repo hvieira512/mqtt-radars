@@ -25,4 +25,15 @@ class DeviceRepository
         $id = (int)$this->db->lastInsertId();
         return $id;
     }
+
+    public function getActiveDevices(): array
+    {
+        $stmt = $this->db->query("
+            SELECT d.device_code, d.id 
+            FROM devices d
+            JOIN user_devices ud ON ud.device_id = d.id
+            WHERE ud.is_active = 1
+        ");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
