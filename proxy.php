@@ -56,4 +56,22 @@ if ($endpoint === 'radar/monitor/report' && isset($params['uid'], $params['date'
     exit;
 }
 
+if ($endpoint === 'radar/monitor/reportDays' && isset($params['uid'], $params['date'])) {
+    $deviceRepo = new DeviceRepository();
+    $deviceId = $deviceRepo->getDeviceId($params['uid']);
+    $startDate = date('Y-m-01', strtotime($params['date']));
+    $endDate = date('Y-m-t', strtotime($params['date']));
+    $storedDates = $sleepService->getStoredReportDates($deviceId, $startDate, $endDate);
+
+    $response = json_decode(apiRequest($config, $endpoint, $params), true);
+    $apiDates = $response['data'] ?? $response ?? [];
+
+    $allDates = array_unique(array_merge($storedDates, $apiDates));
+    sort($allDates);
+
+    $response['data'] = $allDates;
+    echo json_encode($response);
+    exit;
+}
+
 echo apiRequest($config, $endpoint, $params);

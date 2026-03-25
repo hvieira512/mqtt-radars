@@ -49,5 +49,18 @@ class SleepReportRepository
             json_encode($payload)
         ]);
     }
-}
 
+    public function getReportDates(int $deviceId, string $startDate, string $endDate): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT data_relatorio as date FROM radar_relatorios_sono
+            WHERE dispositivo_id = ?
+              AND data_relatorio >= ?
+              AND data_relatorio <= ?
+            ORDER BY data_relatorio DESC
+        ");
+        $stmt->execute([$deviceId, $startDate, $endDate]);
+
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+}

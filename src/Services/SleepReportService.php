@@ -98,4 +98,9 @@ class SleepReportService
             $this->syncDeviceHistory($device['codigo_dispositivo']);
         }
     }
+
+    public function getStoredReportDates(int $deviceId, string $startDate, string $endDate): array
+    {
+        return $this->sleepRepo->getReportDates($deviceId, $startDate, $endDate);
+    }
 }
