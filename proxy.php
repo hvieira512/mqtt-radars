@@ -3,13 +3,20 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-/* ---------------- CONSOLE LOGGER ---------------- */
-function console_log($msg)
-{
-    file_put_contents('php://stderr', "[PROXY] " . $msg . PHP_EOL);
-}
+require_once __DIR__ . '/src/Database.php';              // <- Database class
+require_once __DIR__ . '/src/Repositories/DeviceRepository.php';
+require_once __DIR__ . '/src/Repositories/SleepReportRepository.php';
+require_once __DIR__ . '/src/Repositories/UserDeviceRepository.php';
+require_once __DIR__ . '/src/Services/SleepReportService.php';
+
+use App\Database;
+use App\Repositories\DeviceRepository;
+use App\Repositories\SleepReportRepository;
+use App\Repositories\UserDeviceRepository;
+use App\Services\SleepReportService;
 
 /* ---------------- ENV LOADER ---------------- */
+
 function loadEnv($path)
 {
     if (!file_exists($path)) return;
@@ -46,7 +53,6 @@ $config = [
 /* ---------------- UTIL ---------------- */
 function jsonError($msg, $code = 500)
 {
-    console_log("ERROR: $msg");
     http_response_code($code);
     echo json_encode(['error' => $msg]);
     exit();
@@ -54,9 +60,6 @@ function jsonError($msg, $code = 500)
 
 function httpRequest($url, $headers = [], $post = null)
 {
-    console_log("HTTP REQUEST -> $url");
-    if ($post) console_log("POST BODY -> " . json_encode($post));
-
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
@@ -68,15 +71,12 @@ function httpRequest($url, $headers = [], $post = null)
     $response = curl_exec($ch);
     if (curl_errno($ch)) jsonError(curl_error($ch));
 
-    console_log("API RESPONSE -> $response");
     return $response;
 }
 
 /* ---------------- AUTH ---------------- */
 function login($config)
 {
-    console_log("Performing full login...");
-
     $payload = [
         'username' => $config['username'],
         'password' => $config['password'],
@@ -89,8 +89,6 @@ function login($config)
     $json = json_decode($response, true);
 
     if (!isset($json['data']['access_token'])) jsonError('Login failed');
-
-    console_log("Login successful");
 
     $credentials = [
         'appId' => $config['app_id'],
@@ -112,11 +110,8 @@ function login($config)
 function refreshToken($config, $credentials)
 {
     if (empty($credentials['refresh_token'])) {
-        console_log("No refresh token available, performing full login");
         return login($config);
     }
-
-    console_log("Refreshing access token...");
 
     $payload = [
         'refresh_token' => $credentials['refresh_token'],
@@ -129,11 +124,8 @@ function refreshToken($config, $credentials)
     $json = json_decode($response, true);
 
     if (!isset($json['data']['access_token'])) {
-        console_log("Refresh token failed, performing full login");
         return login($config);
     }
-
-    console_log("Token refreshed successfully");
 
     $newCredentials = [
         'appId' => $config['app_id'],
@@ -162,16 +154,13 @@ function getCredentials($config)
             $timestamp = $cache['timestamp'] ?? 0;
 
             if (time() - $timestamp < $expires_in - 60) {
-                console_log("Using cached credentials (still valid)");
                 return $credentials;
             }
 
-            console_log("Cached token expired or near expiry, trying refresh");
             return refreshToken($config, $credentials);
         }
     }
 
-    console_log("No cached credentials found, performing full login");
     return login($config);
 }
 
@@ -198,7 +187,6 @@ function generateHeaders($credentials, $params)
     }
 
     $signature = strtoupper(sha1($credentials['appSecret'] . "#$timestamp#$serialized"));
-    console_log("Generated signature: $signature");
 
     return [
         "appid: {$credentials['appId']}",
@@ -225,7 +213,6 @@ function apiRequest($config, $endpoint, $params = [])
         isset($decoded['error']) && in_array($decoded['error'], ['invalid_token', 'unauthorized'])
         || http_response_code() === 401
     ) {
-        console_log("Access token invalid, refreshing and retrying...");
 
         // Refresh token or full login
         $credentials = refreshToken($config, $credentials);
@@ -238,16 +225,31 @@ function apiRequest($config, $endpoint, $params = [])
     return $response;
 }
 
-/* ---------------- PROXY ---------------- */
+$pdo = Database::connection();
+
+$sleepService = new SleepReportService(
+    new SleepReportRepository(),
+    new DeviceRepository(),
+    new UserDeviceRepository(),
+    $pdo,
+    $config
+);
+
 $endpoint = $_GET['endpoint'] ?? null;
 if (!$endpoint) jsonError('Missing endpoint', 400);
 
-console_log("Endpoint called: $endpoint");
-
 $params = $_GET;
 unset($params['endpoint']);
-console_log("Params: " . json_encode($params));
+
+if ($endpoint === 'radar/monitor/report' && isset($params['uid'], $params['date'])) {
+    try {
+        $result = $sleepService->get($params['uid'], $params['date']);
+        echo json_encode($result);
+    } catch (Exception $e) {
+        jsonError($e->getMessage(), 500);
+    }
+    exit;
+}
 
 $response = apiRequest($config, $endpoint, $params);
-
 echo $response;

@@ -8,7 +8,6 @@ use App\Database;
 class DeviceRepository
 {
     private PDO $db;
-    private array $cache = [];
 
     public function __construct()
     {
@@ -17,18 +16,13 @@ class DeviceRepository
 
     public function getDeviceId(string $deviceCode): int
     {
-        if (isset($this->cache[$deviceCode])) return $this->cache[$deviceCode];
-
-        $stmt = $this->db->prepare("SELECT id FROM devices WHERE device_code = ?");
+        $stmt = $this->db->prepare("
+            INSERT INTO devices (device_code)
+            VALUES (?)
+            ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
+        ");
         $stmt->execute([$deviceCode]);
-        $id = $stmt->fetchColumn();
-
-        if (!$id) {
-            $stmt = $this->db->prepare("INSERT INTO devices (device_code) VALUES (?)");
-            $stmt->execute([$deviceCode]);
-            $id = $this->db->lastInsertId();
-        }
-
-        return $this->cache[$deviceCode] = (int)$id;
+        $id = (int)$this->db->lastInsertId();
+        return $id;
     }
 }
