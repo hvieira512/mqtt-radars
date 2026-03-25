@@ -34,8 +34,8 @@ export function initRadarWebsocket() {
         const messages = Array.isArray(msg) ? msg : [msg];
 
         messages.forEach((data) => {
-            if (typeof data === "string" && data.includes("error")) {
-                toast.error("Erro de ligação ao MQTT", data);
+            if (data && data.error) {
+                toast.error("Erro de ligação ao MQTT");
                 return;
             }
 
@@ -53,5 +53,8 @@ export function initRadarWebsocket() {
 
         });
     };
-    ws.onerror = (e) => console.error("WS error", e);
+    ws.onerror = (e) => {
+        toast.error("Erro de ligação ao WebSocket");
+        console.error("WS error", e);
+    }
 }

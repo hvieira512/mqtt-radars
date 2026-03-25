@@ -113,6 +113,11 @@ function getCredentials($config)
         $cache = json_decode(file_get_contents($config['credentials_file']), true);
         if ($cache && isset($cache['credentials'])) {
             $credentials = $cache['credentials'];
+
+            if ($credentials['appId'] !== $config['app_id'] || $credentials['appSecret'] !== $config['app_secret']) {
+                return login($config);
+            }
+
             $expires_in = $credentials['expires_in'] ?? 3600;
             $timestamp = $cache['timestamp'] ?? 0;
 

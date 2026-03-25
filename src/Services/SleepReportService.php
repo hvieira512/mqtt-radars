@@ -16,32 +16,32 @@ class SleepReportService
         private array $config
     ) {}
 
-    public function get(string $deviceUid, string $date): array
+    public function get(string $deviceUid, string $date): ?array
     {
         $deviceId = $this->deviceRepo->getDeviceId($deviceUid);
 
-        // Try DB first
         $existing = $this->sleepRepo->find($deviceId, $date);
         if ($existing) {
             return json_decode($existing['payload_bruto'] ?? '[]', true) ?: [];
         }
 
-        // Fetch from API
         $params = ['uid' => $deviceUid, 'date' => $date, 'lang' => "en_US"];
         $response = \apiRequest($this->config, '/radar/monitor/report', $params);
         $decoded = json_decode($response, true);
 
-        if (!$decoded || !isset($decoded['data'])) {
-            throw new Exception("API error or empty data");
+        if (isset($decoded['msg']) && str_contains($decoded['msg'], 'due after')) {
+            return null;
         }
 
-        // Resolve current user
+        if (!$decoded || !isset($decoded['data'])) {
+            return null;
+        }
+
         $userId = $this->userDeviceRepo->getActiveUserId($deviceId);
         if (!$userId) {
-            throw new Exception("No active user found for device $deviceUid");
+            return null;
         }
 
-        // Save to DB
         $this->sleepRepo->insert(
             $deviceId,
             $userId,
