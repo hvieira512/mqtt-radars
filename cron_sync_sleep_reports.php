@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 require_once __DIR__ . '/bootstrap.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/src/Database.php';
@@ -13,16 +16,6 @@ use App\Repositories\SleepReportRepository;
 use App\Repositories\UserDeviceRepository;
 use App\Services\SleepReportService;
 
-header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(200);
-    exit();
-}
-
 $config = [
     'app_id'           => $_ENV['APP_ID'] ?? getenv('APP_ID'),
     'app_secret'       => $_ENV['SECRET'] ?? getenv('SECRET'),
@@ -32,29 +25,24 @@ $config = [
     'credentials_file' => __DIR__ . '/credentials.json'
 ];
 
-$pdo = Database::connection();
-$sleepService = new SleepReportService(
-    new SleepReportRepository(),
-    new DeviceRepository(),
-    new UserDeviceRepository(),
-    $pdo,
-    $config
-);
+echo "[" . date('Y-m-d H:i:s') . "] Starting Daily Sleep Report Sync...\n";
 
-$endpoint = $_GET['endpoint'] ?? null;
-if (!$endpoint) jsonError('Missing endpoint', 400);
+try {
+    $pdo = Database::connection();
 
-$params = $_GET;
-unset($params['endpoint']);
+    $sleepService = new SleepReportService(
+        new SleepReportRepository(),
+        new DeviceRepository(),
+        new UserDeviceRepository(),
+        $pdo,
+        $config
+    );
 
-if ($endpoint === 'radar/monitor/report' && isset($params['uid'], $params['date'])) {
-    try {
-        $result = $sleepService->get($params['uid'], $params['date']);
-        echo json_encode($result);
-    } catch (Exception $e) {
-        jsonError($e->getMessage(), 500);
-    }
-    exit;
+    $sleepService->syncAllDevices();
+
+    echo "[" . date('Y-m-d H:i:s') . "] Sync finished successfully.\n";
+} catch (Exception $e) {
+    error_log("CRON ERROR: " . $e->getMessage());
+    echo "[" . date('Y-m-d H:i:s') . "] CRITICAL ERROR: " . $e->getMessage() . "\n";
+    exit(1);
 }
-
-echo apiRequest($config, $endpoint, $params);

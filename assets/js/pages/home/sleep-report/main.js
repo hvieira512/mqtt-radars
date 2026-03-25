@@ -105,9 +105,16 @@ const fetchReport = async (uid, name, date) => {
         setReportVisibility(true);
         refreshData(data);
     } catch (error) {
-        console.error("[SleepReport] Fetch error:", error);
+        const errorMessage = error.message || "";
+
+        if (errorMessage.includes("No active user found")) {
+            toast.warning("Este dispositivo não tem um utilizador ativo associado.");
+        } else {
+            console.error("[SleepReport] Fetch error:", error);
+            toast.error("Erro ao carregar o relatório de sono");
+        }
+
         setReportVisibility(false);
-        toast.error("Erro ao carregar o relatório de sono");
     } finally {
         removeLoading(DOM.container);
     }
