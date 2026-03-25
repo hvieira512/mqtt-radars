@@ -23,7 +23,7 @@ class SleepReportService
         // Try DB first
         $existing = $this->sleepRepo->find($deviceId, $date);
         if ($existing) {
-            return json_decode($existing['raw_payload'], true);
+            return json_decode($existing['payload_bruto'] ?? '[]', true) ?: [];
         }
 
         // Fetch from API
@@ -59,10 +59,10 @@ class SleepReportService
 
         foreach ($devices as $device) {
             try {
-                $this->get($device['device_code'], $date);
-                echo "Synced {$device['device_code']}\n";
+                $this->get($device['codigo_dispositivo'], $date);
+                echo "Synced {$device['codigo_dispositivo']}\n";
             } catch (Exception $e) {
-                echo "Failed {$device['device_code']}: {$e->getMessage()}\n";
+                echo "Failed {$device['codigo_dispositivo']}: {$e->getMessage()}\n";
             }
         }
     }
@@ -95,7 +95,7 @@ class SleepReportService
         $devices = $this->deviceRepo->getActiveDevices();
 
         foreach ($devices as $device) {
-            $this->syncDeviceHistory($device['device_code']);
+            $this->syncDeviceHistory($device['codigo_dispositivo']);
         }
     }
 }
