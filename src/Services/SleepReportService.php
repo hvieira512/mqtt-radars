@@ -30,7 +30,7 @@ class SleepReportService
 
         // Fetch from API
         $params = ['uid' => $deviceUid, 'date' => $date, 'lang' => "en_US"];
-        $response = apiRequest($this->config, '/radar/monitor/report', $params);
+        $response = \apiRequest($this->config, '/radar/monitor/report', $params);
         $decoded = json_decode($response, true);
 
         if (!$decoded || !isset($decoded['data'])) {
@@ -75,5 +75,42 @@ class SleepReportService
             }
         }
     }
-}
 
+    public function syncDeviceHistory(string $deviceUid): void
+    {
+        $params = [
+            'uid' => $deviceUid,
+            'date' => date('Y-m-01'),
+            'lang' => "en_US"
+        ];
+
+        $response = \apiRequest($this->config, '/radar/monitor/reportDays', $params);
+        $decoded = json_decode($response, true);
+
+        $availableDates = $decoded['data'] ?? $decoded ?? [];
+        if (!is_array($availableDates)) return;
+
+        foreach ($availableDates as $date) {
+            try {
+                $this->get($deviceUid, $date);
+            } catch (Exception $e) {
+                error_log("Failed syncing $deviceUid for date $date: " . $e->getMessage());
+            }
+        }
+    }
+
+    public function syncAllDevices(): void
+    {
+        $stmt = $this->pdo->query("
+            SELECT d.device_code 
+            FROM devices d
+            JOIN user_devices ud ON ud.device_id = d.id
+            WHERE ud.is_active = 1
+        ");
+        $devices = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($devices as $device) {
+            $this->syncDeviceHistory($device['device_code']);
+        }
+    }
+}
