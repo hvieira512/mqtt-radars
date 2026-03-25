@@ -41,7 +41,7 @@ export function toast({
     title = "",
     text = "",
     theme = "info",
-    timer,
+    timer = 3000,
     ...options
 }) {
     const themeConfig = themes[theme] || themes.info;
