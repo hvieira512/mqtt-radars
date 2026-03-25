@@ -1,5 +1,6 @@
 import { getRequest } from "../../auth.js";
 import { initTooltips, removeLoading, renderLoading } from "../../utils.js";
+import toast from "../../toastr.js";
 import "./radar/modal.js";
 import { initSleepReportModal } from "./sleep-report/main.js";
 
@@ -50,8 +51,17 @@ const renderDeviceCard = ({ uid, eqt_name, modelNumber, isOnline }) => {
 
 // Fetch devices
 const fetchDevices = async () => {
-    const { data } = await getRequest("thirdparty/v2/getDeviceInfo");
-    return data || [];
+    try {
+        const response = await getRequest("thirdparty/v2/getDeviceInfo");
+        if (response.msg && response.msg.includes("Frequent requests")) {
+            toast.warning("Limite de requisições. Tente novamente mais tarde");
+            return [];
+        }
+        return response.data || [];
+    } catch (error) {
+        console.error("Error fetching devices:", error);
+        return [];
+    }
 };
 
 const renderDevicesList = async () => {

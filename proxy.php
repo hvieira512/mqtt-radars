@@ -37,7 +37,6 @@ $sleepService = new SleepReportService(
     new SleepReportRepository(),
     new DeviceRepository(),
     new UserDeviceRepository(),
-    $pdo,
     $config
 );
 
@@ -54,6 +53,24 @@ if ($endpoint === 'radar/monitor/report' && isset($params['uid'], $params['date'
     } catch (Exception $e) {
         jsonError($e->getMessage(), 500);
     }
+    exit;
+}
+
+if ($endpoint === 'radar/monitor/reportDays' && isset($params['uid'], $params['date'])) {
+    $deviceRepo = new DeviceRepository();
+    $deviceId = $deviceRepo->getDeviceId($params['uid']);
+    $startDate = date('Y-m-01', strtotime($params['date']));
+    $endDate = date('Y-m-t', strtotime($params['date']));
+    $storedDates = $sleepService->getStoredReportDates($deviceId, $startDate, $endDate);
+
+    $response = json_decode(apiRequest($config, $endpoint, $params), true);
+    $apiDates = $response['data'] ?? $response ?? [];
+
+    $allDates = array_unique(array_merge($storedDates, $apiDates));
+    sort($allDates);
+
+    $response['data'] = $allDates;
+    echo json_encode($response);
     exit;
 }
 

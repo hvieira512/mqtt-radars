@@ -20,9 +20,9 @@ class UserDeviceRepository
     public function getActiveUserId(int $deviceId): ?int
     {
         $stmt = $this->db->prepare("
-            SELECT user_id 
-            FROM user_devices
-            WHERE device_id = ? AND is_active = 1
+            SELECT utilizador_id 
+            FROM utilizador_dispositivos
+            WHERE dispositivo_id = ? AND ativo = 1
             LIMIT 1
         ");
         $stmt->execute([$deviceId]);

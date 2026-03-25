@@ -1,10 +1,3 @@
-const baseToast = Swal.mixin({
-    toast: true,
-    position: "top-end",
-    showConfirmButton: false,
-    timerProgressBar: true,
-});
-
 const themes = {
     success: {
         icon: "success",
@@ -16,7 +9,17 @@ const themes = {
         customClass: { popup: "toast-danger" },
     },
 
+    perigo: {
+        icon: "error",
+        customClass: { popup: "toast-danger" },
+    },
+
     warning: {
+        icon: "warning",
+        customClass: { popup: "toast-warning" },
+    },
+
+    aviso: {
         icon: "warning",
         customClass: { popup: "toast-warning" },
     },
@@ -41,16 +44,18 @@ export function toast({
     title = "",
     text = "",
     theme = "info",
-    timer = 3000,
+    timer = 4000,
     ...options
 }) {
-    const themeConfig = themes[theme] || themes.info;
-
-    return baseToast.fire({
-        title,
-        text,
-        timer,
-        ...themeConfig,
+    Swal.fire({
+        toast: true,
+        position: "top-end",
+        showConfirmButton: false,
+        timer: timer,
+        timerProgressBar: true,
+        ...themes[theme] || themes.info,
+        title: title,
+        text: text,
         ...options,
     });
 }

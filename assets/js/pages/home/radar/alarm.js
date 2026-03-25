@@ -5,6 +5,14 @@ export const renderAlarm = (a) => {
     if (!a) return;
 
     let theme = a.level || "info";
+    const themeMap = {
+        'perigo': 'perigo',
+        'aviso': 'aviso',
+        'info': 'info',
+        'danger': 'perigo',
+        'warning': 'aviso'
+    };
+    theme = themeMap[theme] || theme;
 
     const layoutData = getMapCache(a.device_code);
     const regionName = layoutData

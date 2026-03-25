@@ -14,32 +14,32 @@ class HeartBreathAlarms implements AlarmInterface
 
         // --- HEART RATE ---
         $this->applyRuleSet($alarms, $hr, [
-            [$hr > 140, 'heart_rate_high_critical', 'danger', "Frequência cardíaca muito alta: {$hr} bpm"],
-            [$hr > 110, 'heart_rate_high', 'warning', "Frequência cardíaca elevada: {$hr} bpm"],
-            [$hr < 30,  'heart_rate_low_critical', 'danger', "Frequência cardíaca muito baixa: {$hr} bpm"],
-            [$hr < 40,  'heart_rate_low', 'warning', "Frequência cardíaca baixa: {$hr} bpm"],
+            [$hr > 140, 'heart_rate_high_critical', 'perigo', "Frequência cardíaca muito alta: {$hr} bpm"],
+            [$hr > 110, 'heart_rate_high', 'aviso', "Frequência cardíaca elevada: {$hr} bpm"],
+            [$hr < 30,  'heart_rate_low_critical', 'perigo', "Frequência cardíaca muito baixa: {$hr} bpm"],
+            [$hr < 40,  'heart_rate_low', 'aviso', "Frequência cardíaca baixa: {$hr} bpm"],
         ]);
 
         // --- APNEA ---
         if ($this->isSleeping($ss) && $this->isInvalidBreathing($br)) {
             $alarms[] = $this->makeAlarm(
                 'apnea',
-                'danger',
+                'perigo',
                 "Possível apneia durante o sono"
             );
         }
 
         // --- BREATHING RATE ---
         $this->applyRuleSet($alarms, $br, [
-            [$br > 25, 'breathing_high', 'warning', "Frequência respiratória elevada: {$br} rpm"],
-            [$br < 8 && $br > 0, 'breathing_low', 'danger', "Frequência respiratória baixa: {$br} rpm"],
+            [$br > 25, 'breathing_high', 'aviso', "Frequência respiratória elevada: {$br} rpm"],
+            [$br < 8 && $br > 0, 'breathing_low', 'perigo', "Frequência respiratória baixa: {$br} rpm"],
         ]);
 
         // --- SENSOR FAILURE ---
         if ($this->isSignalLost($hr, $br)) {
             $alarms[] = $this->makeAlarm(
                 'vitals_signal_lost',
-                'warning',
+                'aviso',
                 "Sem leitura de sinais vitais"
             );
         }

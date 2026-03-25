@@ -17,8 +17,8 @@ class SleepReportRepository
     public function find(int $deviceId, string $date): ?array
     {
         $stmt = $this->db->prepare("
-            SELECT * FROM radar_sleep_reports
-            WHERE device_id = ? AND report_date = ?
+            SELECT * FROM radar_relatorios_sono
+            WHERE dispositivo_id = ? AND data_relatorio = ?
             LIMIT 1
         ");
         $stmt->execute([$deviceId, $date]);
@@ -34,11 +34,11 @@ class SleepReportRepository
         array $payload
     ): void {
         $stmt = $this->db->prepare("
-            INSERT INTO radar_sleep_reports (user_id, device_id, report_date, score, raw_payload)
+            INSERT INTO radar_relatorios_sono (utilizador_id, dispositivo_id, data_relatorio, pontuacao, payload_bruto)
             VALUES (?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
-                score = VALUES(score),
-                raw_payload = VALUES(raw_payload)
+                pontuacao = VALUES(pontuacao),
+                payload_bruto = VALUES(payload_bruto)
         ");
 
         $stmt->execute([
@@ -49,5 +49,18 @@ class SleepReportRepository
             json_encode($payload)
         ]);
     }
-}
 
+    public function getReportDates(int $deviceId, string $startDate, string $endDate): array
+    {
+        $stmt = $this->db->prepare("
+            SELECT data_relatorio as date FROM radar_relatorios_sono
+            WHERE dispositivo_id = ?
+              AND data_relatorio >= ?
+              AND data_relatorio <= ?
+            ORDER BY data_relatorio DESC
+        ");
+        $stmt->execute([$deviceId, $startDate, $endDate]);
+
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+}

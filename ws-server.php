@@ -48,10 +48,8 @@ class RadarWebSocket implements MessageComponentInterface
         if ($this->clients->count() === 0) return;
 
         foreach ($this->clients as $client) {
-            $client->send(json_encode(array_values($data)));
+            $client->send(json_encode($data));
         }
-
-        Logger::info("Broadcast completed. Clients: {$this->clients->count()}");
     }
 }
 

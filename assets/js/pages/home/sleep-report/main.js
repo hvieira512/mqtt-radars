@@ -80,7 +80,7 @@ const fetchReport = async (uid, name, date) => {
 
         const reportParams = { uid, date, lang: "en_US" };
         const response = await getRequest("radar/monitor/report", reportParams);
-        const data = response.data || response;
+        const data = response;
 
         updateDeviceHeader(uid, name);
 
@@ -95,9 +95,13 @@ const fetchReport = async (uid, name, date) => {
 
         DatePicker.updateCalendar(daysData);
 
-        if (date === today && currentHour < 8) toast.info(isDueMessage);
+        if (date === today && currentHour < 8) {
+            toast.info(isDueMessage);
+            setReportVisibility(false);
+            return;
+        }
 
-        if (!data.score || data.code === 500) {
+        if (!data || !data.score || data.code === 500) {
             setReportVisibility(false);
             return;
         }
