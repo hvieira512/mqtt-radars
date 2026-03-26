@@ -53,7 +53,6 @@ export function renderRadarInfo(container, data) {
         };
     };
 
-    // Parse heart & breath param safely
     const parseHeartBreath = (str) => {
         if (!str) return null;
         const vals = str
@@ -184,149 +183,275 @@ export function renderRadarInfo(container, data) {
     `;
 }
 
-let chartHR, chartBR, hrSeries, brSeries;
+let chartHR = null, chartBR = null;
+let hrSeries = null, brSeries = null;
+let hrAxisX = null, brAxisX = null;
+let rootHR = null, rootBR = null;
+let hrData = [], brData = [];
+let hrStats = { min: null, max: null, sum: 0, count: 0 };
+let brStats = { min: null, max: null, sum: 0, count: 0 };
 
 const sleepStateMap = {
     Undefined: {
         label: "Indefinido",
         icon: "fa-question-circle",
-        class: "text-secondary",
+        gradient: "linear-gradient(135deg, #6c757d 0%, #495057 100%)",
     },
-    "Light Sleep": { label: "Sono Leve", icon: "fa-bed", class: "text-info" },
+    "Light Sleep": { 
+        label: "Sono Leve", 
+        icon: "fa-bed", 
+        gradient: "linear-gradient(135deg, #0dcaf0 0%, #0aa2c0 100%)",
+    },
     "Deep Sleep": {
         label: "Sono Profundo",
         icon: "fa-moon",
-        class: "text-primary",
+        gradient: "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)",
     },
-    Awake: { label: "Acordado", icon: "fa-eye", class: "text-success" },
+    Awake: { 
+        label: "Acordado", 
+        icon: "fa-eye",
+        gradient: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
+    },
 };
+
+function createChart(containerId, color) {
+    const container = document.getElementById(containerId);
+    if (!container) return null;
+    
+    if (container.__am5root) {
+        container.__am5root.dispose();
+    }
+    container.innerHTML = '';
+    
+    const root = am5.Root.new(containerId);
+    container.__am5root = root;
+    root._logo?.dispose();
+    root.setThemes([am5themes_Animated.new(root)]);
+
+    const chart = root.container.children.push(
+        am5xy.XYChart.new(root, {
+            layout: root.verticalLayout,
+            paddingLeft: 5,
+            paddingRight: 5,
+            paddingTop: 5,
+            paddingBottom: 5,
+        }),
+    );
+
+    const xAxis = chart.xAxes.push(
+        am5xy.DateAxis.new(root, {
+            baseInterval: { timeUnit: "second", count: 1 },
+            renderer: am5xy.AxisRendererX.new(root, {
+                visible: false,
+                minGridDistance: 0,
+            }),
+            tooltipLocation: 0,
+        }),
+    );
+
+    const yAxis = chart.yAxes.push(
+        am5xy.ValueAxis.new(root, {
+            renderer: am5xy.AxisRendererY.new(root, {
+                minGridDistance: 30,
+                strokeOpacity: 0.1,
+            }),
+            labels: {
+                template: {
+                    maxWidth: 35,
+                    text: "{value}",
+                },
+            },
+        }),
+    );
+
+    const series = chart.series.push(
+        am5xy.SmoothedXLineSeries.new(root, {
+            xAxis: xAxis,
+            yAxis: yAxis,
+            valueYField: "value",
+            valueXField: "time",
+            stroke: am5.color(color),
+            strokeWidth: 2,
+            tensionX: 0.8,
+            fill: am5.color(color),
+            tooltip: am5.Tooltip.new(root, {
+                labelText: "{valueY}",
+            }),
+        }),
+    );
+
+    series.fills.template.setAll({
+        visible: true,
+        fillOpacity: 0.2,
+    });
+
+    series.bullets.push(function() {
+        const bullet = am5.Bullet.new(root, {
+            locationX: 1,
+            sprite: am5.Circle.new(root, {
+                radius: 5,
+                fill: am5.color(color),
+                strokeWidth: 2,
+                stroke: "#fff",
+            }),
+        });
+        return bullet;
+    });
+
+    return { chart, series, xAxis, root };
+}
+
+function calculateStats(data, stats) {
+    if (data.length === 0) return stats;
+    
+    const values = data.map(d => d.value).filter(v => v > 0);
+    if (values.length === 0) return stats;
+
+    stats.min = Math.min(...values);
+    stats.max = Math.max(...values);
+    stats.sum = values.reduce((a, b) => a + b, 0);
+    stats.count = values.length;
+
+    return stats;
+}
+
+function getTrendIcon(data) {
+    if (data.length < 3) return '<i class="fas fa-horizontal-rule text-muted"></i>';
+    
+    const recent = data.slice(-5);
+    if (recent.length < 2) return '<i class="fas fa-horizontal-rule text-muted"></i>';
+    
+    const first = recent[0].value;
+    const last = recent[recent.length - 1].value;
+    const diff = last - first;
+    
+    if (Math.abs(diff) < 2) return '<i class="fas fa-horizontal-rule text-muted"></i>';
+    if (diff > 0) return '<i class="fas fa-arrow-up text-success"></i>';
+    return '<i class="fas fa-arrow-down text-danger"></i>';
+}
 
 export function renderVitals(uid, vitals) {
     const container = document.getElementById("liveRadarInfo");
+    const hrContainer = document.getElementById("chart-heart-rate");
+    const brContainer = document.getElementById("chart-breath-rate");
+    const hrValue = document.getElementById("heart-rate-value");
+    const brValue = document.getElementById("breath-rate-value");
 
-    if (!container || container.closest("#radarModal").dataset.id !== uid)
-        return;
+    if (!container) return;
+    if (container.closest("#radarModal").dataset.id !== uid) return;
 
     const now = new Date().getTime();
+    const currentHR = vitals.heart_rate ?? 0;
+    const currentBR = vitals.breathing ?? 0;
 
-    // Initialize Heart Rate chart
-    if (!chartHR) {
-        const heartRateGraph = am5.Root.new("chart-heart-rate");
-        heartRateGraph._logo?.dispose();
-        heartRateGraph.setThemes([am5themes_Animated.new(heartRateGraph)]);
-        chartHR = heartRateGraph.container.children.push(
-            am5xy.XYChart.new(heartRateGraph, {
-                layout: heartRateGraph.verticalLayout,
-            }),
-        );
+    if (hrValue) hrValue.textContent = currentHR > 0 ? currentHR : "--";
+    if (brValue) brValue.textContent = currentBR > 0 ? currentBR : "--";
 
-        const xAxisHR = chartHR.xAxes.push(
-            am5xy.DateAxis.new(heartRateGraph, {
-                baseInterval: { timeUnit: "second", count: 1 },
-                renderer: am5xy.AxisRendererX.new(heartRateGraph, {
-                    visible: false,
-                }),
-            }),
-        );
-
-        const yAxisHR = chartHR.yAxes.push(
-            am5xy.ValueAxis.new(heartRateGraph, {
-                min: 40,
-                max: 180,
-                strictMinMax: true,
-                renderer: am5xy.AxisRendererY.new(heartRateGraph, {
-                    labels: { fill: am5.color(0xff0000), fontSize: 12 },
-                    strokeOpacity: 0.3,
-                }),
-            }),
-        );
-
-        hrSeries = chartHR.series.push(
-            am5xy.LineSeries.new(heartRateGraph, {
-                name: "Heart Rate",
-                xAxis: xAxisHR,
-                yAxis: yAxisHR,
-                valueYField: "value",
-                valueXField: "time",
-                stroke: am5.color(0xff0000),
-                strokeWidth: 2,
-                tensionX: 0.7,
-                tooltip: am5.Tooltip.new(heartRateGraph, {
-                    labelText: "{valueY}",
-                }),
-            }),
-        );
-
-        hrSeries.data.setAll([]);
+    if (!chartHR && hrContainer) {
+        const hrChart = createChart("chart-heart-rate", 0xe74c3c);
+        if (hrChart) {
+            chartHR = hrChart.chart;
+            hrSeries = hrChart.series;
+            hrAxisX = hrChart.xAxis;
+            rootHR = hrChart.root;
+            hrSeries.data.setAll([]);
+        }
     }
 
-    // Initialize Breath Rate chart
-    if (!chartBR) {
-        const breathRateGraph = am5.Root.new("chart-breath-rate");
-        breathRateGraph._logo?.dispose();
-        breathRateGraph.setThemes([am5themes_Animated.new(breathRateGraph)]);
-        chartBR = breathRateGraph.container.children.push(
-            am5xy.XYChart.new(breathRateGraph, {
-                layout: breathRateGraph.verticalLayout,
-            }),
-        );
-
-        const xAxisBR = chartBR.xAxes.push(
-            am5xy.DateAxis.new(breathRateGraph, {
-                baseInterval: { timeUnit: "second", count: 1 },
-                renderer: am5xy.AxisRendererX.new(breathRateGraph, {
-                    visible: false,
-                }),
-            }),
-        );
-
-        const yAxisBR = chartBR.yAxes.push(
-            am5xy.ValueAxis.new(breathRateGraph, {
-                min: 0,
-                max: 40,
-                strictMinMax: true,
-                renderer: am5xy.AxisRendererY.new(breathRateGraph, {
-                    labels: { fill: am5.color(0x00ffff), fontSize: 12 },
-                    strokeOpacity: 0.3,
-                }),
-            }),
-        );
-
-        brSeries = chartBR.series.push(
-            am5xy.LineSeries.new(breathRateGraph, {
-                name: "Breath Rate",
-                xAxis: xAxisBR,
-                yAxis: yAxisBR,
-                valueYField: "value",
-                valueXField: "time",
-                stroke: am5.color(0x00ffff),
-                strokeWidth: 2,
-                tensionX: 0.7,
-                tooltip: am5.Tooltip.new(breathRateGraph, {
-                    labelText: "{valueY}",
-                }),
-            }),
-        );
-
-        brSeries.data.setAll([]);
+    if (!chartBR && brContainer) {
+        const brChart = createChart("chart-breath-rate", 0x3498db);
+        if (brChart) {
+            chartBR = brChart.chart;
+            brSeries = brChart.series;
+            brAxisX = brChart.xAxis;
+            rootBR = brChart.root;
+            brSeries.data.setAll([]);
+        }
     }
 
-    // Push new points
-    hrSeries.data.push({ time: now, value: vitals.heart_rate ?? 0 });
-    brSeries.data.push({ time: now, value: vitals.breathing ?? 0 });
+    if (!chartHR || !chartBR) return;
 
-    // Keep last 60 points
-    if (hrSeries.dataItems.length > 60) hrSeries.data.removeIndex(0);
-    if (brSeries.dataItems.length > 60) brSeries.data.removeIndex(0);
+    hrData.push({ time: now, value: currentHR });
+    brData.push({ time: now, value: currentBR });
 
-    const sleepContainer = document.getElementById("sleep-state");
-    if (!sleepContainer) return;
-    const state =
-        sleepStateMap[vitals.sleep_state] ?? sleepStateMap["Undefined"];
+    if (hrData.length > 60) hrData.shift();
+    if (brData.length > 60) brData.shift();
 
-    sleepContainer.innerHTML = `
-        <span class="d-flex align-items-center justify-content-center gap-2 fw-bold ${state.class}" style="font-size:1.1rem;">
-            <i class="fa-solid ${state.icon}"></i> ${state.label}
-        </span>
-    `;
+    hrSeries.data.setAll([...hrData]);
+    brSeries.data.setAll([...brData]);
+
+    if (hrAxisX) {
+        hrAxisX.set("start", 0.85);
+        hrAxisX.set("end", 1);
+    }
+    if (brAxisX) {
+        brAxisX.set("start", 0.85);
+        brAxisX.set("end", 1);
+    }
+
+    calculateStats(hrData, hrStats);
+    calculateStats(brData, brStats);
+
+    const hrMin = document.getElementById("heart-rate-min");
+    const hrAvg = document.getElementById("heart-rate-avg");
+    const hrMax = document.getElementById("heart-rate-max");
+    const hrTrend = document.getElementById("heart-rate-trend");
+
+    if (hrMin) hrMin.textContent = hrStats.min ?? "--";
+    if (hrAvg) hrAvg.textContent = hrStats.count > 0 ? Math.round(hrStats.sum / hrStats.count) : "--";
+    if (hrMax) hrMax.textContent = hrStats.max ?? "--";
+    if (hrTrend) hrTrend.innerHTML = getTrendIcon(hrData);
+
+    const brMin = document.getElementById("breath-rate-min");
+    const brAvg = document.getElementById("breath-rate-avg");
+    const brMax = document.getElementById("breath-rate-max");
+    const brTrend = document.getElementById("breath-rate-trend");
+
+    if (brMin) brMin.textContent = brStats.min ?? "--";
+    if (brAvg) brAvg.textContent = brStats.count > 0 ? Math.round(brStats.sum / brStats.count) : "--";
+    if (brMax) brMax.textContent = brStats.max ?? "--";
+    if (brTrend) brTrend.innerHTML = getTrendIcon(brData);
+
+    const sleepContainer = document.getElementById("sleep-state-container");
+    const state = sleepStateMap[vitals.sleep_state] ?? sleepStateMap["Undefined"];
+
+    if (sleepContainer) {
+        sleepContainer.style.background = state.gradient;
+        const label = document.getElementById("sleep-state-label");
+        if (label) label.textContent = state.label;
+        const icon = document.querySelector("#sleep-state i");
+        if (icon) icon.className = `fa-solid ${state.icon}`;
+    }
+}
+
+export function resetVitalsCharts() {
+    const hrContainer = document.getElementById("chart-heart-rate");
+    const brContainer = document.getElementById("chart-breath-rate");
+
+    if (chartHR) {
+        chartHR.dispose();
+        chartHR = null;
+        hrSeries = null;
+        hrAxisX = null;
+        rootHR = null;
+    }
+    if (chartBR) {
+        chartBR.dispose();
+        chartBR = null;
+        brSeries = null;
+        brAxisX = null;
+        rootBR = null;
+    }
+    if (hrContainer) {
+        hrContainer.innerHTML = '';
+        hrContainer.__am5root = null;
+    }
+    if (brContainer) {
+        brContainer.innerHTML = '';
+        brContainer.__am5root = null;
+    }
+    hrData = [];
+    brData = [];
+    hrStats = { min: null, max: null, sum: 0, count: 0 };
+    brStats = { min: null, max: null, sum: 0, count: 0 };
 }

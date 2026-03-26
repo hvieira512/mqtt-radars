@@ -6,7 +6,7 @@ import {
     destroyRadarMap,
     resizeRadarMap,
 } from "./map.js";
-import { renderRadarInfo } from "./info.js";
+import { renderRadarInfo, resetVitalsCharts } from "./info.js";
 import { initRadarWebsocket, setCurrentUID } from "./websocket.js";
 import toast from "../../../toastr.js";
 import { setMapCache, getMapCache } from "./utils.js";
@@ -31,9 +31,16 @@ let currName = null;
 
 initGrids();
 modal.addEventListener("shown.bs.modal", async (e) => {
-    currUID = e.relatedTarget.dataset.id;
-    currName = e.relatedTarget.dataset.name;
-    if (!currUID) return;
+    const newUID = e.relatedTarget.dataset.id;
+    const newName = e.relatedTarget.dataset.name;
+    if (!newUID) return;
+
+    if (newUID !== currUID) {
+        resetVitalsCharts();
+    }
+
+    currUID = newUID;
+    currName = newName;
 
     modal.dataset.id = currUID;
     sleepReportBtn.dataset.id = currUID;
@@ -88,6 +95,7 @@ modal.addEventListener("hidden.bs.modal", () => {
     modalTitle.textContent = "Detalhes do Radar";
     infoTab.innerHTML = "";
     destroyRadarMap();
+    resetVitalsCharts();
     setCurrentUID(null);
 });
 

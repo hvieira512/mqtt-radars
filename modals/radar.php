@@ -48,26 +48,75 @@
                     </div>
                     <div class="col-12 col-xl-4">
                         <div class="card shadow h-100">
-                            <div class="card-header mb-0">
-                                Sinais Vitais
+                            <div class="card-header d-flex align-items-center justify-content-between py-2">
+                                <span class="fw-semibold">Sinais Vitais</span>
+                                <button id="sleep-report-btn" type="button" class="btn btn-sm btn-outline-primary py-1" data-bs-toggle="modal" data-bs-target="#sleepReportModal">
+                                    <i class="fa-solid fa-moon me-1"></i> Relatório
+                                </button>
                             </div>
                             <div id="liveRadarInfo" class="card-body d-flex flex-column gap-3">
-                                <div id="sleep-state"></div>
-                                <div class="chart-container">
-                                    <h6 class="fw-bold"><i class="fas fa-heart text-danger"></i> Frequência Cardíaca
-                                        (BPM)</h6>
+
+                                <!-- Sleep State -->
+                                <div id="sleep-state-container" class="flex-grow-1 text-center py-3 rounded-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                    <div id="sleep-state" class="d-flex align-items-center justify-content-center gap-3 text-white h-100">
+                                        <i class="fa-solid fa-moon fs-2"></i>
+                                        <div>
+                                            <div class="fs-4 fw-bold" id="sleep-state-label">Carregando...</div>
+                                            <small class="opacity-75" id="sleep-state-subtitle">Estado do Sono</small>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Heart Rate -->
+                                <div class="vital-card bg-white rounded-3 p-2 shadow-sm">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="vital-icon bg-danger bg-opacity-10 rounded-circle p-2">
+                                                <i class="fas fa-heart text-danger"></i>
+                                            </div>
+                                            <span class="text-muted small fw-medium">Frequência Cardíaca</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span id="heart-rate-value" class="fs-5 fw-bold text-danger">--</span>
+                                            <span class="text-muted small">BPM</span>
+                                            <div id="heart-rate-trend" class="vital-trend">
+                                                <i class="fas fa-horizontal-rule text-muted"></i>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div id="chart-heart-rate" class="w-100" style="height: 225px;"></div>
+                                    <div class="d-flex justify-content-between text-muted small mt-2">
+                                        <span>Mín: <span id="heart-rate-min">--</span></span>
+                                        <span>Média: <span id="heart-rate-avg">--</span></span>
+                                        <span>Máx: <span id="heart-rate-max">--</span></span>
+                                    </div>
                                 </div>
-                                <div class="chart-container">
-                                    <h6 class="fw-bold"><i class="fas fa-lungs text-primary"></i> Frequência de
-                                        Respiração (rpm)</h6>
+
+                                <!-- Breath Rate -->
+                                <div class="vital-card bg-white rounded-3 p-2 shadow-sm">
+                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="vital-icon bg-primary bg-opacity-10 rounded-circle p-2">
+                                                <i class="fas fa-lungs text-primary"></i>
+                                            </div>
+                                            <span class="text-muted small fw-medium">Frequência Respiratória</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span id="breath-rate-value" class="fs-5 fw-bold text-primary">--</span>
+                                            <span class="text-muted small">rpm</span>
+                                            <div id="breath-rate-trend" class="vital-trend">
+                                                <i class="fas fa-horizontal-rule text-muted"></i>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <div id="chart-breath-rate" class="w-100" style="height: 225px;"></div>
+                                    <div class="d-flex justify-content-between text-muted small mt-2">
+                                        <span>Mín: <span id="breath-rate-min">--</span></span>
+                                        <span>Média: <span id="breath-rate-avg">--</span></span>
+                                        <span>Máx: <span id="breath-rate-max">--</span></span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div class="mx-auto mb-3">
-                                <button id="sleep-report-btn" type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#sleepReportModal">
-                                    <i class="fa-solid fa-moon me-2"></i> Relatório de Sono
-                                </button>
+
                             </div>
                         </div>
                     </div>

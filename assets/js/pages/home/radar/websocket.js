@@ -39,8 +39,6 @@ export function initRadarWebsocket() {
                 return;
             }
 
-            console.log(data);
-
             if (!currUID || (data.device_code && data.device_code !== currUID))
                 return;
             if (data.type === "position") updatePeople(data.people);

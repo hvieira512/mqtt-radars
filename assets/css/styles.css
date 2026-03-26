@@ -75,3 +75,60 @@
     background: var(--bs-primary);
     border-radius: 50%;
 }
+
+/* Vital Cards */
+.vital-card {
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.vital-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.vital-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vital-icon i {
+    font-size: 1.1rem;
+}
+
+.vital-trend {
+    padding: 0.5rem;
+}
+
+.vital-trend i {
+    font-size: 1.2rem;
+}
+
+/* Sleep State Card */
+#sleep-state-container {
+    transition: background .3s ease;
+}
+
+/* Chart Containers */
+.chart-container {
+    position: relative;
+}
+
+#chart-heart-rate,
+#chart-breath-rate {
+    overflow: hidden;
+}
+
+/* AG Grid Customizations */
+.ag-theme-quartz {
+    --ag-header-background-color: #f8f9fa;
+    --ag-row-hover-color: #f1f3f5;
+    --ag-selected-row-background-color: rgba(13, 110, 253, 0.1);
+}
+
+/* Card Headers */
+.card-header {
+    min-height: calc(1.5rem + 0.5rem + 0.5rem);
+}
