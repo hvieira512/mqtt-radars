@@ -4,13 +4,10 @@ require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/src/Database.php';
 require_once __DIR__ . '/src/Repositories/DeviceRepository.php';
 require_once __DIR__ . '/src/Repositories/SleepReportRepository.php';
-require_once __DIR__ . '/src/Repositories/UserDeviceRepository.php';
 require_once __DIR__ . '/src/Services/SleepReportService.php';
 
-use App\Database;
 use App\Repositories\DeviceRepository;
 use App\Repositories\SleepReportRepository;
-use App\Repositories\UserDeviceRepository;
 use App\Services\SleepReportService;
 
 header('Content-Type: application/json');
@@ -32,11 +29,9 @@ $config = [
     'credentials_file' => __DIR__ . '/credentials.json'
 ];
 
-$pdo = Database::connection();
 $sleepService = new SleepReportService(
     new SleepReportRepository(),
     new DeviceRepository(),
-    new UserDeviceRepository(),
     $config
 );
 

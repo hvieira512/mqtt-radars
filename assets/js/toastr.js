@@ -49,7 +49,7 @@ export function toast({
 }) {
     Swal.fire({
         toast: true,
-        position: "top-end",
+        position: "top",
         showConfirmButton: false,
         timer: timer,
         timerProgressBar: true,

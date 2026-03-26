@@ -7,13 +7,11 @@ require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/src/Database.php';
 require_once __DIR__ . '/src/Repositories/DeviceRepository.php';
 require_once __DIR__ . '/src/Repositories/SleepReportRepository.php';
-require_once __DIR__ . '/src/Repositories/UserDeviceRepository.php';
 require_once __DIR__ . '/src/Services/SleepReportService.php';
 
-use App\Database;
+use App\Logger;
 use App\Repositories\DeviceRepository;
 use App\Repositories\SleepReportRepository;
-use App\Repositories\UserDeviceRepository;
 use App\Services\SleepReportService;
 
 $config = [
@@ -25,23 +23,20 @@ $config = [
     'credentials_file' => __DIR__ . '/credentials.json'
 ];
 
-echo "[" . date('Y-m-d H:i:s') . "] Starting Daily Sleep Report Sync...\n";
+Logger::info("Starting Daily Sleep Report Sync...");
 
 try {
-    $pdo = Database::connection();
-
     $sleepService = new SleepReportService(
         new SleepReportRepository(),
         new DeviceRepository(),
-        new UserDeviceRepository(),
         $config
     );
 
     $sleepService->syncAllDevices();
 
-    echo "[" . date('Y-m-d H:i:s') . "] Sync finished successfully.\n";
+    Logger::info("Sync finished successfully.");
 } catch (Exception $e) {
     error_log("CRON ERROR: " . $e->getMessage());
-    echo "[" . date('Y-m-d H:i:s') . "] CRITICAL ERROR: " . $e->getMessage() . "\n";
+    Logger::info("CRITICAL ERROR: " . $e->getMessage());
     exit(1);
 }

@@ -17,7 +17,7 @@ class SleepReportRepository
     public function find(int $deviceId, string $date): ?array
     {
         $stmt = $this->db->prepare("
-            SELECT * FROM radar_relatorios_sono
+            SELECT * FROM radares_relatorios_sono
             WHERE dispositivo_id = ? AND data_relatorio = ?
             LIMIT 1
         ");
@@ -28,13 +28,13 @@ class SleepReportRepository
 
     public function insert(
         int $deviceId,
-        int $userId,
+        ?int $userId,
         string $date,
         ?int $score,
         array $payload
     ): void {
         $stmt = $this->db->prepare("
-            INSERT INTO radar_relatorios_sono (utilizador_id, dispositivo_id, data_relatorio, pontuacao, payload_bruto)
+            INSERT INTO radares_relatorios_sono (utilizador_id, dispositivo_id, data_relatorio, pontuacao, payload_bruto)
             VALUES (?, ?, ?, ?, ?)
             ON DUPLICATE KEY UPDATE
                 pontuacao = VALUES(pontuacao),
@@ -53,7 +53,7 @@ class SleepReportRepository
     public function getReportDates(int $deviceId, string $startDate, string $endDate): array
     {
         $stmt = $this->db->prepare("
-            SELECT data_relatorio as date FROM radar_relatorios_sono
+            SELECT data_relatorio as date FROM radares_relatorios_sono
             WHERE dispositivo_id = ?
               AND data_relatorio >= ?
               AND data_relatorio <= ?

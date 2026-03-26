@@ -17,7 +17,7 @@ class VitalsRepository
     public function insertVitals(int $eventId, array $data): void
     {
         $stmt = $this->db->prepare("
-            INSERT INTO radar_sinais_vitais
+            INSERT INTO radares_sinais_vitais
             (evento_id, taxa_respiracao, ritmo_cardiaco, estado_sono)
             VALUES (?, ?, ?, ?)
         ");

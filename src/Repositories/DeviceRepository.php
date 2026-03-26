@@ -2,38 +2,31 @@
 
 namespace App\Repositories;
 
-use PDO;
-use App\Database;
-
 class DeviceRepository
 {
-    private PDO $db;
+    private $db;
 
-    public function __construct()
+    public function __construct($db)
     {
-        $this->db = Database::connection();
+        $this->db = $db;
     }
 
     public function getDeviceId(string $deviceCode): int
     {
-        $stmt = $this->db->prepare("
-            INSERT INTO dispositivos (codigo_dispositivo)
-            VALUES (?)
-            ON DUPLICATE KEY UPDATE id = LAST_INSERT_ID(id)
-        ");
-        $stmt->execute([$deviceCode]);
-        $id = (int)$this->db->lastInsertId();
-        return $id;
+        $sql = "INSERT INTO radares (uid) VALUES ('" . $this->db->escape($deviceCode) . "')";
+        $this->db->execute($sql);
+
+        $result = $this->db->getRow("SELECT LAST_INSERT_ID() as id");
+        return (int)$result['id'];
     }
 
-    public function getActiveDevices(): array
+    public function getAllDevices(): array
     {
-        $stmt = $this->db->query("
-            SELECT d.codigo_dispositivo, d.id 
-            FROM dispositivos d
-            JOIN utilizador_dispositivos ud ON ud.dispositivo_id = d.id
-            WHERE ud.ativo = 1
-        ");
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $result = $this->db->query("SELECT id, uid, criado_em FROM radares");
+        $devices = [];
+        while ($row = $this->db->fetchRow($result)) {
+            $devices[] = $row;
+        }
+        return $devices;
     }
 }

@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Repositories\SleepReportRepository;
 use App\Repositories\DeviceRepository;
-use App\Repositories\UserDeviceRepository;
 use Exception;
 
 class SleepReportService
@@ -12,7 +11,6 @@ class SleepReportService
     public function __construct(
         private SleepReportRepository $sleepRepo,
         private DeviceRepository $deviceRepo,
-        private UserDeviceRepository $userDeviceRepo,
         private array $config
     ) {}
 
@@ -37,14 +35,9 @@ class SleepReportService
             return null;
         }
 
-        $userId = $this->userDeviceRepo->getActiveUserId($deviceId);
-        if (!$userId) {
-            return null;
-        }
-
         $this->sleepRepo->insert(
             $deviceId,
-            $userId,
+            null,
             $date,
             $decoded['data']['score'] ?? null,
             $decoded['data']
@@ -55,14 +48,14 @@ class SleepReportService
 
     public function syncForDate(string $date): void
     {
-        $devices = $this->deviceRepo->getActiveDevices();
+        $devices = $this->deviceRepo->getAllDevices();
 
         foreach ($devices as $device) {
             try {
-                $this->get($device['codigo_dispositivo'], $date);
-                echo "Synced {$device['codigo_dispositivo']}\n";
+                $this->get($device['uid'], $date);
+                echo "Synced {$device['uid']}\n";
             } catch (Exception $e) {
-                echo "Failed {$device['codigo_dispositivo']}: {$e->getMessage()}\n";
+                echo "Failed {$device['uid']}: {$e->getMessage()}\n";
             }
         }
     }
@@ -92,10 +85,10 @@ class SleepReportService
 
     public function syncAllDevices(): void
     {
-        $devices = $this->deviceRepo->getActiveDevices();
+        $devices = $this->deviceRepo->getAllDevices();
 
         foreach ($devices as $device) {
-            $this->syncDeviceHistory($device['codigo_dispositivo']);
+            $this->syncDeviceHistory($device['uid']);
         }
     }
 

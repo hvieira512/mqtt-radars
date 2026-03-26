@@ -17,7 +17,7 @@ class StatsRepository
     public function insertMinuteStats(int $eventId, array $data): void
     {
         $stmt = $this->db->prepare("
-            INSERT INTO radar_estatisticas_minuto
+            INSERT INTO radares_estatisticas_minuto
             (evento_id, versao, contagem_pessoas, distancia_caminhada, tempo_caminhada, tempo_meditacao,
              tempo_na_cama, tempo_em_pe, tempo_multiplayer, respiracao_ativa)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -39,7 +39,7 @@ class StatsRepository
     public function insertSleepStats(int $eventId, array $data): void
     {
         $stmt = $this->db->prepare("
-            INSERT INTO radar_estatisticas_sono
+            INSERT INTO radares_estatisticas_sono
             (evento_id, respiracao_tempo_real, ritmo_cardiaco_tempo_real,
              media_respiracao_min, media_ritmo_cardiaco_min,
              estado_respiracao, estado_ritmo_cardiaco,

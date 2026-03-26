@@ -17,7 +17,7 @@ class EventRepository
     public function createEvent(int $deviceId, int $eventTypeId): int
     {
         $stmt = $this->db->prepare(
-            "INSERT INTO radar_eventos (dispositivo_id, tipo_evento_id) VALUES (?, ?)"
+            "INSERT INTO radares_eventos (dispositivo_id, tipo_evento_id) VALUES (?, ?)"
         );
         $stmt->execute([$deviceId, $eventTypeId]);
         return (int)$this->db->lastInsertId();
@@ -25,6 +25,6 @@ class EventRepository
 
     public function getEventTypes(): array
     {
-        return $this->db->query("SELECT * FROM radar_tipos_evento")->fetchAll(PDO::FETCH_ASSOC);
+        return $this->db->query("SELECT * FROM radares_tipos_evento")->fetchAll(PDO::FETCH_ASSOC);
     }
 }

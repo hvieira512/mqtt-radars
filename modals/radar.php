@@ -12,9 +12,9 @@
                             <div class="card-header mb-0">
                                 Monitorização de Trajetos
                             </div>
-                            <div class="card-body">
+                            <div class="card-body d-flex flex-column">
                                 <div id="current-people"></div>
-                                <div id="radar-map" class="w-100" style="height: 600px;"></div>
+                                <div id="radar-map" class="flex-grow-1 w-100" style="min-height: 600px;"></div>
                                 <div class="d-flex justify-content-end gap-3 flex-wrap mt-2">
 
                                     <div class="d-flex align-items-center gap-2">
@@ -61,7 +61,7 @@
                                     <div id="sleep-state" class="d-flex align-items-center justify-content-center gap-3 text-white h-100">
                                         <i class="fa-solid fa-moon fs-2"></i>
                                         <div>
-                                            <div class="fs-4 fw-bold" id="sleep-state-label">Carregando...</div>
+                                            <div class="fs-4 fw-bold" id="sleep-state-label"></div>
                                             <small class="opacity-75" id="sleep-state-subtitle">Estado do Sono</small>
                                         </div>
                                     </div>
