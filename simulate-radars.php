@@ -49,11 +49,11 @@ fread($socket, 4);
 echo "Connected! Starting simulation...\n";
 
 $radars = [
-    ['license' => 1001, 'uid' => 'RADAR001', 'device' => 'DEV001'],
-    ['license' => 1001, 'uid' => 'RADAR002', 'device' => 'DEV002'],
-    ['license' => 1002, 'uid' => 'RADAR003', 'device' => 'DEV003'],
-    ['license' => 1002, 'uid' => 'RADAR004', 'device' => 'DEV004'],
-    ['license' => 1003, 'uid' => 'RADAR005', 'device' => 'DEV005'],
+    ['license' => 1001, 'uid' => 'RADAR001'],
+    ['license' => 1001, 'uid' => 'RADAR002'],
+    ['license' => 1002, 'uid' => 'RADAR003'],
+    ['license' => 1002, 'uid' => 'RADAR004'],
+    ['license' => 1003, 'uid' => 'RADAR005'],
 ];
 
 $postures = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
@@ -90,10 +90,10 @@ while (true) {
         
         $payload = json_encode([
             'payload' => [
-                'deviceCode' => $radar['device'],
+                'deviceCode' => $radar['uid'],
                 'position' => generatePositionData(0, rand(-50, 50), rand(-50, 50), rand(200, 300), $postures[array_rand($postures)], $events[array_rand($events)], rand(1, 4)),
-                'heartbreath' => generateHeartBreathData(rand(10, 25), rand(60, 100), $sleepStates[array_rand($sleepStates)]),
-                'hbstatics' => generateHbStaticsData(rand(10, 25), rand(60, 100), rand(12, 20), rand(65, 85), rand(0, 255))
+                // 'heartbreath' => generateHeartBreathData(rand(10, 25), rand(60, 100), $sleepStates[array_rand($sleepStates)]),
+                // 'hbstatics' => generateHbStaticsData(rand(10, 25), rand(60, 100), rand(12, 20), rand(65, 85), rand(0, 255))
             ]
         ]);
         

@@ -6,21 +6,25 @@ import toast from "../../../toastr.js";
 
 let ws = null;
 let currUID = null;
+let tenantId = window.TENANT_ID || 'default';
 
 export function setCurrentUID(uid) {
     currUID = uid;
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ action: "subscribe", deviceCode: currUID }));
-    }
 }
 
+export function setTenant(tenant) {
+    tenantId = tenant;
+}
 
 export function initRadarWebsocket() {
     if (ws) return;
 
     ws = new WebSocket("ws://localhost:8080");
 
-    ws.onopen = () => console.log("WS connected");
+    ws.onopen = () => {
+        console.log("WS connected, registering tenant:", tenantId);
+        ws.send(JSON.stringify({ type: "register", tenant: tenantId }));
+    };
 
     ws.onmessage = (event) => {
         let msg;
@@ -28,6 +32,11 @@ export function initRadarWebsocket() {
             msg = JSON.parse(event.data);
         } catch (err) {
             console.error("Invalid WS message", err);
+            return;
+        }
+
+        if (msg.type === 'registered') {
+            console.log("Registered for tenant:", msg.tenant);
             return;
         }
 

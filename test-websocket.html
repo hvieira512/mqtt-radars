@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radar WebSocket Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        h1 { color: #00d9ff; }
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .connected { background: #0f9d58; }
+        .disconnected { background: #db4437; }
+        .connecting { background: #f4b400; color: #000; }
+        .messages {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        .message {
+            padding: 10px;
+            margin: 5px 0;
+            background: #0f3460;
+            border-radius: 5px;
+            border-left: 4px solid #00d9ff;
+        }
+        .message.alarm {
+            border-left-color: #ff6b6b;
+            background: #4a1c1c;
+        }
+        pre {
+            background: #0a0a15;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        button {
+            background: #00d9ff;
+            color: #1a1a2e;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+        }
+        button:hover { background: #00b8d9; }
+        .controls {
+            margin: 20px 0;
+            padding: 15px;
+            background: #16213e;
+            border-radius: 8px;
+        }
+        input {
+            background: #0a0a15;
+            border: 1px solid #00d9ff;
+            color: #eee;
+            padding: 10px;
+            border-radius: 5px;
+            width: 300px;
+        }
+        .log {
+            font-family: monospace;
+            font-size: 11px;
+            color: #888;
+            margin-top: 20px;
+            padding: 10px;
+            background: #0a0a15;
+            border-radius: 5px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        .log div { margin: 2px 0; }
+    </style>
+</head>
+<body>
+    <h1>Radar WebSocket Test</h1>
+    
+    <div id="status" class="status disconnected">Disconnected</div>
+    
+    <div class="controls">
+        <h3>WebSocket URL</h3>
+        <input type="text" id="wsUrl" value="ws://localhost:8080" style="width: 350px;">
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+        
+        <h3 style="margin-top: 15px;">Test Broadcast Endpoint</h3>
+        <input type="text" id="httpUrl" value="http://localhost:8081" style="width: 350px;">
+        <button onclick="testBroadcast()">Send Test Broadcast</button>
+    </div>
+    
+    <h2>Received Messages</h2>
+    <div id="messages" class="messages">
+        <em style="color: #666;">No messages received yet...</em>
+    </div>
+    
+    <h3>Debug Log</h3>
+    <div id="log" class="log"></div>
+    
+    <button onclick="clearMessages()">Clear Messages</button>
+
+    <script>
+        let ws = null;
+        
+        function log(msg) {
+            const logEl = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.textContent = '[' + time + '] ' + msg;
+            logEl.insertBefore(div, logEl.firstChild);
+            console.log(msg);
+        }
+        
+        function updateStatus(status, className) {
+            const el = document.getElementById('status');
+            el.textContent = status;
+            el.className = 'status ' + className;
+        }
+        
+        function addMessage(data, isAlarm = false) {
+            const container = document.getElementById('messages');
+            if (container.querySelector('em')) {
+                container.innerHTML = '';
+            }
+            
+            const div = document.createElement('div');
+            div.className = 'message' + (isAlarm ? ' alarm' : '');
+            
+            const time = new Date().toLocaleTimeString();
+            const type = data.type || 'unknown';
+            const device = data.device_code || 'unknown';
+            
+            div.innerHTML = `
+                <strong>[${time}] ${type.toUpperCase()}</strong> - Device: ${device}
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            
+            container.insertBefore(div, container.firstChild);
+        }
+        
+        function connect() {
+            const wsUrl = document.getElementById('wsUrl').value;
+            
+            if (ws) {
+                log('Closing existing connection...');
+                ws.close();
+            }
+            
+            updateStatus('Connecting...', 'connecting');
+            log('Connecting to: ' + wsUrl);
+            
+            try {
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = function() {
+                    updateStatus('Connected', 'connected');
+                    log('WebSocket CONNECTED');
+                };
+                
+                ws.onmessage = function(event) {
+                    log('Received: ' + event.data.substring(0, 100) + '...');
+                    try {
+                        const data = JSON.parse(event.data);
+                        
+                        if (Array.isArray(data)) {
+                            data.forEach(item => {
+                                const isAlarm = item.alarm_type || item.category;
+                                addMessage(item, !!isAlarm);
+                            });
+                        } else {
+                            addMessage(data);
+                        }
+                    } catch (e) {
+                        log('Parse error: ' + e.message);
+                    }
+                };
+                
+                ws.onclose = function(event) {
+                    updateStatus('Disconnected (code: ' + event.code + ')', 'disconnected');
+                    log('WebSocket CLOSED, code: ' + event.code + ', reason: ' + event.reason);
+                    ws = null;
+                };
+                
+                ws.onerror = function(error) {
+                    updateStatus('Error', 'disconnected');
+                    log('WebSocket ERROR: ' + JSON.stringify(error));
+                };
+            } catch (e) {
+                updateStatus('Error: ' + e.message, 'disconnected');
+                log('Connection error: ' + e.message);
+            }
+        }
+        
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            updateStatus('Disconnected', 'disconnected');
+        }
+        
+        function testBroadcast() {
+            const httpUrl = document.getElementById('httpUrl').value;
+            const url = httpUrl + '/broadcast';
+            log('Sending POST to: ' + url);
+            
+            const testData = [
+                {
+                    type: 'position',
+                    device_code: 'TEST001',
+                    people: [
+                        { person_index: 0, posture_state: 'Standing', x_position_dm: 5, y_position_dm: 3 }
+                    ]
+                },
+                {
+                    type: 'vitals',
+                    device_code: 'TEST001',
+                    breathing: 15,
+                    heart_rate: 72,
+                    sleep_state: 'Awake'
+                }
+            ];
+            
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(testData)
+            })
+            .then(r => {
+                log('Response status: ' + r.status);
+                return r.json();
+            })
+            .then(r => {
+                log('Response: ' + JSON.stringify(r));
+                alert('Broadcast sent! Status: ' + JSON.stringify(r));
+            })
+            .catch(e => {
+                log('Fetch error: ' + e.message);
+                alert('Error: ' + e.message);
+            });
+        }
+        
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '<em style="color: #666;">No messages received yet...</em>';
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        // Auto-connect on load
+        connect();
+    </script>
+</body>
+</html>

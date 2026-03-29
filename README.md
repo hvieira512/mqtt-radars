@@ -1,338 +1,324 @@
-# MQTT Radar System
+# MQTT Radar System - Multi-Tenant Architecture
 
-Real-time radar monitoring system with MQTT message processing, WebSocket broadcasting, and sleep report management.
+Real-time radar monitoring system with MQTT message processing and database polling.
 
 ## Architecture Overview
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   MQTT Broker   │────▶│   mqtt-worker   │────▶│  ws-server     │
-│                 │     │   (PHP)         │     │  (WebSocket)   │
-└─────────────────┘     │                  │     │                │
-                        │  - Parse data    │     │  - Broadcast   │
-                        │  - Save to DB   │     │    to clients  │
-                        │  - Evaluate     │     │                │
-                        │    alarms       │     └────────┬────────┘
-                        └────────┬─────────┘              │
-                                 │                        │
-                                 ▼                        ▼
-                        ┌─────────────────┐     ┌─────────────────┐
-                        │     MySQL       │     │    Browser      │
-                        │   (Database)    │     │  (Dashboard)    │
-                        └─────────────────┘     └─────────────────┘
+┌─────────────────┐     ┌──────────────────────────────────────────────────────────────────────────┐
+│  MQTT Broker    │────▶│                         Server (MQTT Worker)                          │
+│  (external)     │     │                                                                          │
+│                 │     │   ┌──────────────────────────────────────────────────────────────────┐ │
+└─────────────────┘     │   │ mqtt-worker.php                                               │ │
+                         │   │                                                                │ │
+                         │   │  - Subscribe to MQTT topics: radar/{idLicenca}/+/+            │ │
+                         │   │  - Extract idLicenca from topic                              │ │
+                         │   │  - Forward raw payload to each tenant's /ingest.php           │ │
+                         │   │  - Publish to Redis for queue backup                          │ │
+                         │   └──────────────────────────────────────────────────────────────────┘ │
+                         └──────────────────────────────────────────────────────────────────────────┘
+                                                   │ HTTP POST (raw payload)
+                                                   ▼
+                              ┌────────────────────────────────────────────────────────────────────┐
+                              │                         Tenant App (gucc.dev, gerpii, etc.)       │
+                              │                                                                      │
+                              │   ┌──────────────────────────────────────────────────────────┐ │
+                              │   │ _ajax/radar-data-ingest.php                                │ │
+                              │   │                                                            │ │
+                              │   │  1. Parse binary data (position, vitals, stats)           │ │
+                              │   │  2. Store in tenant's database                            │ │
+                              │   │  3. Evaluate alarms via AlarmEngine                        │ │
+                              │   │  4. Store any alarms triggered                            │ │
+                              │   └──────────────────────────────────────────────────────────┘ │
+                              │                                                                      │
+                              │   ┌──────────────────────────────────────────────────────────┐ │
+                              │   │ _ajax/radar-poll.php                                     │ │
+                              │   │                                                            │ │
+                              │   │  - Query new events since last poll                     │ │
+                              │   │  - Return events with full payload                       │ │
+                              │   └──────────────────────────────────────────────────────────┘ │
+                              │                                                                      │
+                              │   ┌──────────────────────────────────────────────────────────┐ │
+                              │   │ monitorizacao.php                                        │ │
+                              │   │                                                            │ │
+                              │   │  - JavaScript polls radar-poll.php every 1 second        │ │
+                              │   │  - Updates UI on new radar data                          │ │
+                              │   └──────────────────────────────────────────────────────────┘ │
+                              └────────────────────────────────────────────────────────────────────┘
 ```
 
-## Features
+## Components
 
-- **Real-time Radar Monitoring**: Live position tracking and vital signs via MQTT
-- **WebSocket Broadcasting**: Instant data push to connected browsers
-- **Sleep Reports**: Daily sleep analysis with detailed charts and KPIs
-- **Alarm System**: Configurable alarms for falls, heart rate anomalies, and more
-- **Position Tracking**: Real-time people detection and tracking on room map
+### Server-Side (mqtt-radars repository)
+
+| File | Purpose |
+|------|---------|
+| `mqtt-worker.php` | Subscribes to MQTT broker, forwards raw payloads to tenant apps |
+| `simulate-radars.php` | Test tool that simulates radar MQTT messages |
+
+### Tenant-Side (gucc.dev, gerpii, etc.)
+
+| File | Purpose |
+|------|---------|
+| `_ajax/radar-data-ingest.php` | Receives MQTT payload, parses binary data, stores in DB |
+| `_ajax/radar-poll.php` | Returns new events since last poll (for browser polling) |
+| `monitorizacao.php` | Dashboard page with JavaScript polling |
+
+## Data Flow
+
+### Step 1: MQTT Message Arrives
+
+```
+Radar Device → MQTT Broker
+Topic: radar/{idLicenca}/{deviceCode}/{dataType}
+Payload: {"payload": {"deviceCode": "...", "position": "base64..."}}
+```
+
+### Step 2: Server - MQTT Worker
+
+```php
+mqtt-worker.php receives message:
+
+1. Extract idLicenca from topic → e.g., "1001"
+2. Determine tenant URL (from CRM or config)
+3. HTTP POST raw payload to tenant:
+   POST https://gucc.dev/_ajax/radar-data-ingest.php
+   Body: {"payload": {"deviceCode": "RADAR001", "position": "AQID..."}}
+```
+
+### Step 3: Tenant - Data Ingestion
+
+```php
+radar-data-ingest.php receives request:
+
+1. Parse topic → deviceCode = "RADAR001"
+2. Parse binary data using PositionParser/HeartBreathParser
+3. Get or create device in tenant's database
+4. Store parsed data (position, vitals, etc.)
+5. Evaluate alarms via AlarmEngine
+6. Store any alarms triggered
+```
+
+### Step 4: Browser - Database Polling
+
+```javascript
+// monitorizacao.php
+let lastEventId = 0;
+
+function pollRadarData() {
+    fetch('_ajax/radar-poll.php?after_id=' + lastEventId)
+        .then(r => r.json())
+        .then(data => {
+            if (data.items && data.items.length > 0) {
+                data.items.forEach(item => {
+                    console.log('[Radar]', item);
+                    // Update UI with new data
+                    updateRadarDisplay(item);
+                });
+                lastEventId = data.next_after_id;
+            }
+        });
+}
+
+setInterval(pollRadarData, 1000);
+```
+
+## Topic Structure
+
+```
+radar/{idLicenca}/{deviceCode}/{dataType}
+
+idLicenca  - License identifier (maps to tenant app)
+deviceCode - Unique radar device UID
+dataType   - Type of data: position, vitals, posstatics, hbstatics
+```
+
+Example topics:
+- `radar/1001/RADAR001/position` - Position data
+- `radar/1001/RADAR001/vitals` - Heart rate, breathing
+- `radar/1002/RADAR003/position` - Position data for different tenant
+
+## Multi-Tenant Isolation
+
+Each tenant app:
+- Has its own database
+- Receives MQTT messages only for its own `idLicenca`
+- Browser clients poll the same tenant's radar-poll.php
+
+## Parsers
+
+Binary data is parsed by tenant apps using parser classes:
+
+| Parser | Input | Output |
+|--------|-------|--------|
+| `PositionParser` | 16-byte base64 | Position data with people coordinates, posture |
+| `HeartBreathParser` | 16-byte base64 | Heart rate, breathing rate, sleep state |
 
 ## Requirements
 
+### Server-Side
+
 - PHP 8.1+
-- MySQL 8.0+
 - Composer
-- MQTT Broker (e.g., Mosquitto)
-- Node.js (optional, for frontend asset management)
+- Redis (for message queuing)
+- Access to MQTT broker
 
-## Installation
+### Tenant-Side
 
-### 1. Clone and Install Dependencies
+- PHP capable of serving HTTP
+- Own MySQL database
+- Receives HTTP POST requests
 
-```bash
-git clone <repository-url>
-cd mqtt-test
-composer install
-```
+## Environment Variables
 
-### 2. Environment Configuration
-
-Copy the example environment file and configure your settings:
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with your configuration (see [.env Configuration](#env-configuration) below).
-
-### 3. Database Setup
-
-#### Option A: Using Docker
-
-```bash
-docker-compose up -d
-```
-
-This starts a MySQL 8.3 container on port 3306.
-
-#### Option B: Manual Setup
-
-Create a MySQL database and run the schema:
-
-```bash
-mysql -u root -p your_database < schema_pt.sql
-```
-
-### 4. Seed Event Types
-
-The system requires event types to be seeded in the database:
-
-```sql
-INSERT INTO radar_tipos_evento (id, nome) VALUES 
-(1, 'position'),
-(2, 'minute_stats'),
-(3, 'vitals'),
-(4, 'hbstatics'),
-(5, 'alarm'),
-(10, 'fall_detection'),
-(11, 'heart_rate_high'),
-(12, 'heart_rate_low'),
-(13, 'apnea'),
-(14, 'no_activity'),
-(15, 'empty_room'),
-(16, 'presence_detected');
-```
-
-## Configuration
-
-### .env Configuration
-
-Create a `.env` file based on `.env.example`:
+### Server (.env)
 
 ```env
-# MQTT Broker Connection
-MQTT_SERVER=your_mqtt_server_ip
+# MQTT Broker
+MQTT_SERVER=127.0.0.1
 MQTT_PORT=1883
-MQTT_USERNAME=your_mqtt_username
-MQTT_PASSWORD=your_mqtt_password
-MQTT_TOPIC=radar/frontend
+MQTT_USERNAME=
+MQTT_PASSWORD=
+MQTT_TOPIC=radar/+
 
-# Database Connection
-DB_HOST=localhost
-DB_PORT=3306
-DB_DATABASE=radar
-DB_USERNAME=radar_user
-DB_PASSWORD=your_db_password
+# Redis
+REDIS_URL=tcp://127.0.0.1:6379
 
-# HobaCare API (for sleep reports)
-APP_ID=your_app_id
-SECRET=your_app_secret
-HOBACARE_USERNAME=your_hobacare_username
-HOBACARE_PASSWORD=your_hobacare_password
-BASE_URL=https://api.hobacare.com
+# CRM URL (optional - for tenant URL lookup)
+CRM_URL=https://crm.hitcare.net/api/get.url.php
 ```
 
-## Running the Application
+## Running the Server
 
-The system requires three separate processes running simultaneously:
-
-### 1. PHP Development Server
-
-Serves the web interface and proxy API:
+### Development (Local Machine)
 
 ```bash
-php -S localhost:8000
-```
-
-Access the dashboard at `http://localhost:8000`
-
-### 2. MQTT Worker
-
-Processes incoming MQTT messages, parses data, saves to database, and broadcasts via HTTP to the WebSocket server:
-
-```bash
+# Terminal 1: MQTT Worker
 php mqtt-worker.php
+
+# Terminal 2: (Optional) Radar Simulator for testing
+php simulate-radars.php
 ```
 
-### 3. WebSocket Server
-
-Handles real-time WebSocket connections and broadcasts data to browsers:
+### Production
 
 ```bash
-php ws-server.php
+# Start MQTT Worker
+php mqtt-worker.php &
+
+# Or use systemd/supervisor for process management
 ```
 
-### Using tmux (Recommended)
+## Redis Keys
 
-Create a tmux session with all three processes:
+| Key Pattern | Type | Purpose |
+|-------------|------|---------|
+| `crm:target:{idLicenca}` | String | Cached CRM URL lookup (TTL: 300s) |
+| `mqtt:ingest:{idLicenca}` | List | Backup message queue (LPUSH/RPOP) |
+| `mqtt:failed:{idLicenca}` | List | Failed messages for retry |
 
-```bash
-tmux new-session -d -s radar
-tmux send-keys -t radar:0 'cd /path/to/mqtt-test' Enter
-tmux split-window -t radar -v
-tmux send-keys -t radar:1 'php -S localhost:8000' Enter
-tmux split-window -t radar -h
-tmux send-keys -t radar:2 'php mqtt-worker.php' Enter
-tmux select-pane -t radar:0
-tmux send-keys 'php ws-server.php' Enter
-tmux attach -t radar
+## API Endpoints
+
+### radar-data-ingest.php
+
+Receives raw MQTT data, stores in database.
+
+**Request:**
+```json
+POST /_ajax/radar-data-ingest.php
+Content-Type: application/json
+
+{
+  "payload": {
+    "deviceCode": "RADAR001",
+    "position": "AQIDBAUGBwgJCgsMDQ4O",
+    "heartbreath": "AQIOAQMFAA=="
+  }
+}
+```
+
+**Response:**
+```json
+{
+  "status": "ok",
+  "device": "RADAR001",
+  "device_id": 5,
+  "received_at": "2026-03-28 20:00:00",
+  "events_count": 2
+}
+```
+
+### radar-poll.php
+
+Returns new events since last poll.
+
+**Request:**
+```
+GET /_ajax/radar-poll.php?after_id=0
+```
+
+**Response:**
+```json
+{
+  "items": [
+    {
+      "event_id": 123,
+      "device_code": "RADAR001",
+      "device_id": 5,
+      "type": "position",
+      "created_at": "2026-03-28 20:00:00",
+      "payload": {
+        "people": 2
+      }
+    }
+  ],
+  "next_after_id": 123,
+  "count": 1
+}
 ```
 
 ## Project Structure
 
 ```
-├── src/
-│   ├── Database.php              # PDO connection singleton
-│   ├── EventTypes.php           # Event type constants
-│   ├── AlarmEngine.php         # Alarm evaluation dispatcher
-│   ├── Logger.php               # Simple logging utility
-│   ├── Alarms/
-│   │   ├── AlarmInterface.php   # Alarm contract
-│   │   ├── HeartBreathAlarms.php # Heart/breathing alarm rules
-│   │   └── PositionAlarms.php   # Position/fall alarm rules
-│   ├── Parsers/
-│   │   ├── ParserInterface.php  # Parser contract
-│   │   ├── PositionParser.php   # Radar position data parser
-│   │   ├── HeartBreathParser.php # Vitals data parser
-│   │   ├── PosStaticsParser.php # Minute stats parser
-│   │   └── HbStaticsParser.php  # Heart/breath statistics parser
-│   ├── Repositories/
-│   │   ├── DeviceRepository.php      # Device operations
-│   │   ├── EventRepository.php       # Radar events
-│   │   ├── DetectionRepository.php   # Alarm/event detections
-│   │   ├── StatsRepository.php      # Minute/sleep statistics
-│   │   ├── PositionRepository.php    # People position tracking
-│   │   ├── VitalsRepository.php     # Vital signs data
-│   │   ├── SleepReportRepository.php # Sleep reports
-│   │   └── UserDeviceRepository.php  # User-device associations
-│   └── Services/
-│       └── SleepReportService.php    # Sleep report management
-├── assets/
-│   ├── js/
-│   │   ├── pages/home/
-│   │   │   ├── main.js           # Device list page
-│   │   │   ├── radar/            # Radar modal components
-│   │   │   │   ├── modal.js      # Radar modal logic
-│   │   │   │   ├── websocket.js  # WebSocket client
-│   │   │   │   ├── map.js        # Radar map rendering
-│   │   │   │   ├── grid.js       # Events/alarms grid
-│   │   │   │   ├── alarm.js      # Alarm toasts
-│   │   │   │   └── info.js       # Vital signs display
-│   │   │   └── sleep-report/     # Sleep report components
-│   │   └── utils.js, toastr.js, auth.js
-│   └── css/
-├── modals/
-│   ├── radar.php                # Radar detail modal
-│   └── sleep-report.php         # Sleep report modal
-├── helpers.php                  # Utility functions
-├── bootstrap.php                # Autoloader and environment
-├── proxy.php                    # API proxy for external requests
-├── mqtt-worker.php             # MQTT message processor
-├── ws-server.php               # WebSocket server
-├── schema.sql                  # Database schema (English)
-├── schema_pt.sql               # Database schema (Portuguese)
-├── docker-compose.yml          # MySQL container
-├── composer.json               # PHP dependencies
-└── .env.example               # Environment template
-```
+mqtt-radars/                 # Server-side repository
+├── mqtt-worker.php          # MQTT consumer & HTTP forwarder
+├── simulate-radars.php       # Test radar simulator
+├── README.md
+└── ...
 
-## Database Schema
-
-The system uses a Portuguese naming convention (configured in `schema_pt.sql`):
-
-| Table | Description |
-|-------|-------------|
-| `dispositivos` | Device registry |
-| `radar_tipos_evento` | Event type definitions |
-| `radar_eventos` | Radar event records |
-| `radar_detecoes` | Alarm/event detections |
-| `radar_estatisticas_minuto` | Per-minute statistics |
-| `radar_posicao_pessoas` | People position data |
-| `radar_estatisticas_sono` | Sleep statistics |
-| `radar_sinais_vitais` | Vital signs data |
-| `radar_relatorios_sono` | Sleep reports |
-| `utilizador_dispositivos` | User-device associations |
-
-## Alarm Levels
-
-| Level | Portuguese | Description |
-|-------|------------|-------------|
-| `info` | info | Informational |
-| `warning` | aviso | Warning condition |
-| `danger` | perigo | Critical condition |
-
-## API Endpoints
-
-### Proxy Endpoints (via proxy.php)
-
-| Endpoint | Description |
-|----------|-------------|
-| `thirdparty/v2/getDeviceInfo` | List all devices |
-| `thirdparty/v2/deviceProp` | Get device layout/properties |
-| `radar/monitor/report` | Get sleep report for date |
-| `radar/monitor/reportDays` | Get available report dates |
-
-### Internal Services
-
-The system automatically caches sleep reports in the database and serves them when available, even if the API is rate-limited.
-
-## MQTT Message Format
-
-Expected MQTT payload structure:
-
-```json
-{
-  "payload": {
-    "deviceCode": "DEVICE_UID",
-    "position": "base64_encoded_position_data",
-    "heartbreath": "base64_encoded_vitals_data",
-    "posstatics": "base64_encoded_stats_data",
-    "hbstatics": "base64_encoded_heart_breath_stats"
-  }
-}
+gucc.dev/                    # Tenant app (separate repo)
+├── _ajax/
+│   ├── radar-data-ingest.php  # Receives & stores radar data
+│   └── radar-poll.php        # Polling endpoint for browser
+├── monitorizacao.php         # Dashboard with polling
+└── ...
 ```
 
 ## Troubleshooting
 
-### WebSocket not receiving data
+### Tenant app not receiving MQTT data
 
-1. Check ws-server.php is running on port 8080
-2. Verify HTTP broadcast endpoint is accessible: `curl http://127.0.0.1:8081/broadcast`
-3. Check browser console for WebSocket connection errors
+1. Verify mqtt-worker.php is running and connected to MQTT
+2. Check server logs for forwarding errors
+3. Verify tenant URL is correct (check CRM or config)
+4. Ensure firewall allows HTTP from server to tenant
 
-### MQTT worker not processing messages
+### Browser not receiving new data
 
-1. Verify MQTT broker is accessible
-2. Check credentials in `.env`
-3. Confirm topic subscription matches broker configuration
+1. Open browser console (F12)
+2. Verify polling script is running (should see "[Radar Poll] Started")
+3. Check for console errors
+4. Verify radar-poll.php returns data:
+   ```bash
+   curl https://gucc.dev/_ajax/radar-poll.php?after_id=0
+   ```
 
-### Database connection errors
+### Data not being stored in database
 
-1. Verify MySQL is running
-2. Check credentials in `.env`
-3. Ensure database and tables exist (run schema_pt.sql)
-
-### Sleep reports not loading
-
-1. Verify API credentials (`APP_ID`, `SECRET`, etc.)
-2. Check credentials.json token is valid
-3. Ensure report exists for the requested date
-
-## Development
-
-### Running the Cron Job
-
-Sync sleep reports for all devices:
-
-```bash
-php cron_sync_sleep_reports.php
-```
-
-### Adding New Alarm Rules
-
-1. Create or modify alarm class in `src/Alarms/`
-2. Implement `AlarmInterface`
-3. Register in `AlarmEngine::$alarms`
-
-### Adding New Parsers
-
-1. Create parser class in `src/Parsers/`
-2. Implement `ParserInterface`
-3. Register parser key in `mqtt-worker.php` `$parsers` array
-4. Add corresponding event type in `EventTypes.php`
+1. Verify tenant app's database connection
+2. Check radar-data-ingest.php logs
+3. Verify database schema is up to date
+4. Check for SQL errors in response
 
 ## License
 

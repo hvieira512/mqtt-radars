@@ -1,5 +1,7 @@
-<?php require "helpers.php"; ?>
+<?php require "helpers.php";
 
+$tenantId = $_GET['tenant'] ?? $_SESSION['tenant_id'] ?? basename(dirname(__DIR__));
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -23,6 +25,9 @@
 </head>
 
 <body class="bg-light">
+    <script>
+        window.TENANT_ID = <?= json_encode($tenantId) ?>;
+    </script>
 
     <div class="container-xl mt-5">
         <h1>Radares</h1>

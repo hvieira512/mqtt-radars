@@ -42,11 +42,11 @@ function getTargetFromCrm(string $idLicenca): ?string
         CURLOPT_POSTFIELDS => $postData,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 10,
+        CURLOPT_SSL_VERIFYPEER => false,
     ]);
 
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
 
     if ($httpCode === 200 && $response) {
         $url = trim($response);
@@ -333,6 +333,23 @@ while (true) {
                                         
                                         if ($targetUrl) {
                                             Logger::info("Client $clientId: [$idLicenca] -> $targetUrl/api/radar-data/ingest");
+                                            
+                                            $ch = curl_init($targetUrl . '/api/radar-data/ingest');
+                                            curl_setopt_array($ch, [
+                                                CURLOPT_POST => true,
+                                                CURLOPT_POSTFIELDS => $publish['payload'],
+                                                CURLOPT_RETURNTRANSFER => true,
+                                                CURLOPT_TIMEOUT => 10,
+                                                CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+                                                CURLOPT_SSL_VERIFYPEER => false,
+                                            ]);
+                                            $resp = curl_exec($ch);
+                                            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                                            curl_close($ch);
+                                            
+                                            if ($httpCode !== 200 && $httpCode !== 201) {
+                                                Logger::warn("Client $clientId: CRM forward failed: HTTP $httpCode");
+                                            }
                                         } else {
                                             Logger::warn("Client $clientId: No target for license $idLicenca");
                                         }

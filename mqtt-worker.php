@@ -14,7 +14,7 @@ $server   = $_ENV['MQTT_SERVER'] ?? '127.0.0.1';
 $port     = $_ENV['MQTT_PORT'] ?? 1883;
 $username = $_ENV['MQTT_USERNAME'] ?? '';
 $password = $_ENV['MQTT_PASSWORD'] ?? '';
-$topic    = 'radar/+/+';
+$topic    = $_ENV['MQTT_TOPIC'] ?? '';
 
 $redis = new RedisClient($_ENV['REDIS_URL'] ?? 'tcp://127.0.0.1:6379');
 $cacheTtl = 300;
@@ -35,12 +35,14 @@ function getTargetUrlFromCrm(string $idLicenca, RedisClient $redis, int $cacheTt
         return $cached;
     }
 
-    $ch = curl_init($_ENV['CRM_API_URL'] . '/api/get.url.php');
+    $crmUrl = ($_ENV['CRM_URL'] ?? 'https://crm.hitcare.net/api/get.url.php');
+    $ch = curl_init($crmUrl);
     curl_setopt_array($ch, [
         CURLOPT_POST           => true,
         CURLOPT_RETURNTRANSFER  => true,
         CURLOPT_POSTFIELDS      => "id_licenca=$idLicenca",
-        CURLOPT_TIMEOUT         => 5
+        CURLOPT_TIMEOUT         => 5,
+        CURLOPT_SSL_VERIFYPEER  => false,
     ]);
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -64,19 +66,43 @@ function pushToQueue(RedisClient $redis, string $idLicenca, string $topic, strin
         'license'  => $idLicenca,
         'queued_at' => time()
     ]));
-    Logger::info("Pushed to queue for license $idLicenca");
 }
 
-function broadcastToWebsocket(array $payload): void
+function forwardToTarget(string $targetUrl, string $payload): bool
 {
-    $ch = curl_init("http://127.0.0.1:8081/broadcast");
+    $ingestPath = $_ENV['INGEST_PATH'] ?? '_ajax/radar-data-ingest.php';
+    $ch = curl_init($targetUrl . '/' . $ingestPath);
     curl_setopt_array($ch, [
-        CURLOPT_POST           => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $payload,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
-        CURLOPT_POSTFIELDS     => json_encode($payload),
+        CURLOPT_TIMEOUT => 10,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_SSL_VERIFYPEER => false,
     ]);
-    curl_exec($ch);
+    $resp = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($httpCode >= 200 && $httpCode < 300) {
+        return true;
+    }
+
+    Logger::warn("Forward to $targetUrl failed: HTTP $httpCode");
+    return false;
+}
+
+function publishToRedis(RedisClient $redis, string $idLicenca, string $topic, string $message): void
+{
+    $channel = "radar:ingest:$idLicenca";
+    $payload = json_encode([
+        'topic'    => $topic,
+        'message' => $message,
+        'license' => $idLicenca,
+        'ts'      => time()
+    ]);
+    $redis->publish($channel, $payload);
+    Logger::info("Published to Redis channel: $channel");
 }
 
 function handleMqttMessage(string $topic, string $message, RedisClient $redis, int $cacheTtl): void
@@ -95,38 +121,29 @@ function handleMqttMessage(string $topic, string $message, RedisClient $redis, i
 
     $targetUrl = getTargetUrlFromCrm($idLicenca, $redis, $cacheTtl);
     if (!$targetUrl) {
-        Logger::error("No target URL for license $idLicenca, queuing for retry");
-        pushToQueue($redis, $idLicenca, $topic, $message);
-        return;
+        Logger::warn("No target URL for license $idLicenca");
+    } else {
+        if (forwardToTarget($targetUrl, $message)) {
+            Logger::info("[$idLicenca] -> $targetUrl");
+        }
     }
 
     pushToQueue($redis, $idLicenca, $topic, $message);
-    Logger::info("Message routed to license $idLicenca -> $targetUrl");
+    
+    publishToRedis($redis, $idLicenca, $topic, $message);
 }
 
 function connectAndSubscribe(MqttClient $mqtt, ConnectionSettings $settings, string $topic, RedisClient $redis, int $cacheTtl)
 {
-    try {
-        $mqtt->connect($settings, true);
-        Logger::info("MQTT connected");
+    $mqtt->connect($settings, true);
+    Logger::info("MQTT connected");
 
-        $mqtt->subscribe($topic, function ($topic, $message) use ($redis, $cacheTtl) {
-            handleMqttMessage($topic, $message, $redis, $cacheTtl);
-        }, 1);
-
-        broadcastToWebsocket([
-            'message'  => 'MQTT router connected'
-        ]);
-    } catch (\Exception $e) {
-        Logger::error("MQTT connect failed: {$e->getMessage()}");
-        broadcastToWebsocket([
-            'error'  => "Failed to connect to MQTT broker: {$e->getMessage()}"
-        ]);
-        throw $e;
-    }
+    $mqtt->subscribe($topic, function ($topic, $message) use ($redis, $cacheTtl) {
+        handleMqttMessage($topic, $message, $redis, $cacheTtl);
+    }, 1);
 }
 
-Logger::info("MQTT Router started");
+Logger::info("MQTT Worker started");
 
 while (true) {
     try {
@@ -136,16 +153,9 @@ while (true) {
         $mqtt->loop(true);
     } catch (DataTransferException $e) {
         Logger::error("MQTT connection lost: {$e->getMessage()}, reconnecting...");
-        broadcastToWebsocket([
-            'error' => "MQTT connection lost: {$e->getMessage()}, reconnecting..."
-        ]);
         sleep(3);
     } catch (\Exception $e) {
-        Logger::error("Unexpected MQTT loop error: {$e->getMessage()}");
-        broadcastToWebsocket([
-            'error' => "Unexpected MQTT error: {$e->getMessage()}"
-        ]);
+        Logger::error("Unexpected error: {$e->getMessage()}");
         sleep(5);
     }
 }
-

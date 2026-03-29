@@ -13,5 +13,24 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
 
+  redis:
+    image: redis:7-alpine
+    container_name: radar-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: radar-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto.data:/mosquitto/data
+      - ./mosquitto.log:/mosquitto/log
+    command: sh -c "touch /mosquitto/data/pwfile.conf && chmod 0600 /mosquitto/data/pwfile.conf && mosquitto_passwd -b /mosquitto/data/pwfile.conf havicare hitCare && mosquitto -c /mosquitto/config/mosquitto.conf"
+
 volumes:
   mysql_data:
