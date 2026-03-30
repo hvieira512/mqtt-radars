@@ -1,5 +1,6 @@
 <?php
 require __DIR__ . '/vendor/autoload.php';
+require __DIR__ . '/bootstrap.php';
 
 error_reporting(E_ALL & ~E_DEPRECATED);
 
@@ -43,7 +44,7 @@ function buildPublishPacket(string $topic, string $payload, int $qos = 0): strin
     return chr(0x30 | $flags) . encodeRemainingLen(strlen($packet)) . $packet;
 }
 
-$socket = fsockopen('127.0.0.1', 1883, $errno, $errstr);
+$socket = fsockopen($_ENV['MQTT_SERVER'] ?? '127.0.0.1', $_ENV['MQTT_PORT'] ?? 1883, $errno, $errstr);
 if (!$socket) die("Failed to connect: $errstr ($errno)\n");
 
 fwrite($socket, buildConnectPacket('simulator-' . uniqid(), $username, $password));
