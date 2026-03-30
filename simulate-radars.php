@@ -70,7 +70,7 @@ function generatePositionData(int $personIndex, int $x, int $y, int $z, int $pos
 {
     $raw = chr($personIndex) . chr($x & 0xFF) . chr($y & 0xFF) . chr($z);
     $raw .= chr(rand(0, 255)) . chr(0) . chr(0) . chr(0) . chr(0) . chr(0) . chr(0) . chr(0);
-    $raw .= chr(rand(0, 60)) . chr($posture) . chr($event) . chr($region) . chr(0);
+    $raw .= chr(rand(0, 60)) . chr($posture) . chr($event) . chr($region);
     return base64_encode($raw);
 }
 
