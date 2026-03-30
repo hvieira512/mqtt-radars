@@ -4,8 +4,8 @@ require __DIR__ . '/bootstrap.php';
 
 error_reporting(E_ALL & ~E_DEPRECATED);
 
-$username = 'havicare';
-$password = 'hitCare';
+$username = $_ENV['MQTT_USERNAME'] ?? null;
+$password = $_ENV['MQTT_PASSWORD'] ?? null;
 
 function encodeRemainingLen(int $len): string
 {
