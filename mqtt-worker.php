@@ -70,8 +70,7 @@ function pushToQueue(RedisClient $redis, string $idLicenca, string $topic, strin
 
 function forwardToTarget(string $targetUrl, string $topic, string $payload): bool
 {
-    $ingestPath = $_ENV['INGEST_PATH'] ?? '_ajax/radar-data-ingest.php';
-    $ch = curl_init($targetUrl . '/' . $ingestPath);
+    $ch = curl_init($targetUrl . '/modulos/radares/_ajax/radar-data-ingest.php');
 
     $payloadData = json_decode($payload, true);
 
