@@ -12,8 +12,8 @@ use Predis\Client as RedisClient;
 
 $server   = $_ENV['MQTT_SERVER'] ?? '127.0.0.1';
 $port     = $_ENV['MQTT_PORT'] ?? 1883;
-$username = $_ENV['MQTT_USERNAME'] ?? '';
-$password = $_ENV['MQTT_PASSWORD'] ?? '';
+$username = $_ENV['MQTT_USERNAME'] ?? null;
+$password = $_ENV['MQTT_PASSWORD'] ?? null;
 $topic    = $_ENV['MQTT_TOPIC'] ?? '';
 
 $redis = new RedisClient($_ENV['REDIS_URL'] ?? 'tcp://127.0.0.1:6379');
@@ -68,21 +68,30 @@ function pushToQueue(RedisClient $redis, string $idLicenca, string $topic, strin
     ]));
 }
 
-function forwardToTarget(string $targetUrl, string $payload): bool
+function forwardToTarget(string $targetUrl, string $topic, string $payload): bool
 {
     $ingestPath = $_ENV['INGEST_PATH'] ?? '_ajax/radar-data-ingest.php';
     $ch = curl_init($targetUrl . '/' . $ingestPath);
+
+    $payloadData = json_decode($payload, true);
+
+    $postData = json_encode([
+        'topic' => $topic,
+        'payload' => $payloadData['payload'] ?? $payloadData
+    ]);
+
+    Logger::info("Forwarding to $targetUrl - topic: $topic - payload: " . $payload);
+
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => $payload,
+        CURLOPT_POSTFIELDS => $postData,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_TIMEOUT => 10,
         CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
         CURLOPT_SSL_VERIFYPEER => false,
     ]);
-    $resp = curl_exec($ch);
+    curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
 
     if ($httpCode >= 200 && $httpCode < 300) {
         return true;
@@ -123,13 +132,13 @@ function handleMqttMessage(string $topic, string $message, RedisClient $redis, i
     if (!$targetUrl) {
         Logger::warn("No target URL for license $idLicenca");
     } else {
-        if (forwardToTarget($targetUrl, $message)) {
+        if (forwardToTarget($targetUrl, $topic, $message)) {
             Logger::info("[$idLicenca] -> $targetUrl");
         }
     }
 
     pushToQueue($redis, $idLicenca, $topic, $message);
-    
+
     publishToRedis($redis, $idLicenca, $topic, $message);
 }
 
