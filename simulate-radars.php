@@ -67,6 +67,79 @@ $postures = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 $events = [0, 1, 2, 3, 4];
 $sleepStates = [0b00, 0b01, 0b10, 0b11];
 
+$personStates = [];
+foreach ($radars as $index => $radar) {
+    $personStates[$index] = [
+        'x' => rand(-30, 30),
+        'y' => rand(-30, 30),
+        'z' => rand(200, 300),
+        'vx' => 0,
+        'vy' => 0,
+        'vz' => 0,
+        'targetX' => rand(-30, 30),
+        'targetY' => rand(-30, 30),
+        'targetZ' => rand(200, 300),
+        'state' => 'idle',
+        'stateTimer' => rand(3, 8),
+        'posture' => $postures[array_rand($postures)],
+    ];
+}
+
+function updateHumanMovement(array &$person, array $postures): void
+{
+    $person['stateTimer']--;
+    
+    if ($person['stateTimer'] <= 0) {
+        $states = ['idle', 'walking', 'standing', 'idle', 'walking', 'standing'];
+        $person['state'] = $states[array_rand($states)];
+        $person['stateTimer'] = rand(3, 10);
+        
+        $person['targetX'] = rand(-35, 35);
+        $person['targetY'] = rand(-35, 35);
+        $person['targetZ'] = rand(200, 300);
+        
+        $person['posture'] = $postures[array_rand($postures)];
+    }
+    
+    $maxSpeed = match($person['state']) {
+        'idle' => 0.5,
+        'standing' => 0.3,
+        'walking' => 2.5,
+        default => 1.0,
+    };
+    
+    $dx = $person['targetX'] - $person['x'];
+    $dy = $person['targetY'] - $person['y'];
+    $dz = $person['targetZ'] - $person['z'];
+    $dist = sqrt($dx * $dx + $dy * $dy + $dz * $dz);
+    
+    if ($dist > 0.5) {
+        $person['vx'] += ($dx / $dist) * $maxSpeed * (0.5 + rand(0, 100) / 100);
+        $person['vy'] += ($dy / $dist) * $maxSpeed * (0.5 + rand(0, 100) / 100);
+        $person['vz'] += ($dz / $dist) * $maxSpeed * 0.3 * (0.5 + rand(0, 100) / 100);
+    } else {
+        $person['vx'] *= 0.9;
+        $person['vy'] *= 0.9;
+        $person['vz'] *= 0.9;
+    }
+    
+    $person['vx'] = max(-$maxSpeed, min($maxSpeed, $person['vx']));
+    $person['vy'] = max(-$maxSpeed, min($maxSpeed, $person['vy']));
+    $person['vz'] = max(-0.5, min(0.5, $person['vz']));
+    
+    $person['x'] += $person['vx'];
+    $person['y'] += $person['vy'];
+    $person['z'] += $person['vz'];
+    
+    $person['x'] = max(-50, min(50, $person['x']));
+    $person['y'] = max(-50, min(50, $person['y']));
+    $person['z'] = max(180, min(320, $person['z']));
+    
+    if (rand(1, 100) <= 10) {
+        $person['posture'] = $postures[array_rand($postures)];
+    }
+}
+
 function generatePositionData(int $personIndex, int $x, int $y, int $z, int $posture, int $event, int $region): string
 {
     $raw = chr($personIndex) . chr($x & 0xFF) . chr($y & 0xFF) . chr($z);
@@ -96,13 +169,16 @@ $lastReport = time();
 $sendVitals = true;
 
 while (true) {
-    foreach ($radars as $radar) {
+    foreach ($radars as $index => $radar) {
         $topic = "radar/{$radar['license']}/{$radar['uid']}";
-
+        
+        updateHumanMovement($personStates[$index], $postures);
+        $person = $personStates[$index];
+        
         $payload = json_encode([
             'payload' => [
                 'deviceCode' => $radar['uid'],
-                'position' => generatePositionData(0, rand(-50, 50), rand(-50, 50), rand(200, 300), $postures[array_rand($postures)], $events[array_rand($events)], rand(1, 4)),
+                'position' => generatePositionData(0, (int)round($person['x']), (int)round($person['y']), (int)round($person['z']), $person['posture'], $events[array_rand($events)], rand(1, 4)),
             ]
         ]);
 
