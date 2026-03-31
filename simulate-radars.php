@@ -60,7 +60,7 @@ $radars = [
     ['license' => 1001, 'uid' => '9D8A3204276B'],
     ['license' => 1001, 'uid' => '3525E3DDAA33'],
     ['license' => 1001, 'uid' => '3525E3DD76C7'],
-    ['license' => 1001, 'uid' => 'RADAR_GUCC_1'],
+    ['license' => 1001, 'uid' => '594B3CF100A7'],
 ];
 
 $postures = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
@@ -79,7 +79,7 @@ function generateHeartBreathData(int $breathing, int $heartRate, int $sleepState
 {
     $raw = chr(0) . chr($breathing) . chr($heartRate) . chr(0);
     $raw .= chr(0) . chr(0) . chr(0) . chr(0) . chr(0) . chr(0) . chr(0) . chr(0);
-    $raw .= chr(0) . chr(0) . chr($sleepState << 6) . chr(0);
+    $raw .= chr(0) . chr($sleepState << 6) . chr(0) . chr(0);
     return base64_encode($raw);
 }
 
@@ -93,6 +93,7 @@ function generateHbStaticsData(int $rtBreathing, int $rtHeartRate, int $avgBreat
 
 $messageCount = 0;
 $lastReport = time();
+$sendVitals = true;
 
 while (true) {
     foreach ($radars as $radar) {
@@ -102,13 +103,22 @@ while (true) {
             'payload' => [
                 'deviceCode' => $radar['uid'],
                 'position' => generatePositionData(0, rand(-50, 50), rand(-50, 50), rand(200, 300), $postures[array_rand($postures)], $events[array_rand($events)], rand(1, 4)),
-                // 'heartbreath' => generateHeartBreathData(rand(10, 25), rand(60, 100), $sleepStates[array_rand($sleepStates)]),
-                // 'hbstatics' => generateHbStaticsData(rand(10, 25), rand(60, 100), rand(12, 20), rand(65, 85), rand(0, 255))
             ]
         ]);
 
         fwrite($socket, buildPublishPacket($topic, $payload, 0));
         $messageCount++;
+
+        if ($sendVitals) {
+            $vitalsPayload = json_encode([
+                'payload' => [
+                    'deviceCode' => $radar['uid'],
+                    'heartbreath' => generateHeartBreathData(rand(10, 25), rand(60, 100), $sleepStates[array_rand($sleepStates)]),
+                ]
+            ]);
+            fwrite($socket, buildPublishPacket($topic, $vitalsPayload, 0));
+            $messageCount++;
+        }
 
         if ($messageCount % 5 === 0) {
             echo "-";
@@ -116,6 +126,8 @@ while (true) {
 
         usleep(100000);
     }
+
+    $sendVitals = !$sendVitals;
 
     if (time() - $lastReport >= 5) {
         echo " [" . date('H:i:s') . " Total: $messageCount]\n";
