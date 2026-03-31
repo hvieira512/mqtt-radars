@@ -17,7 +17,7 @@ $password = $_ENV['MQTT_PASSWORD'] ?? null;
 $topic    = $_ENV['MQTT_TOPIC'] ?? '';
 
 $redis = new RedisClient($_ENV['REDIS_URL'] ?? 'tcp://127.0.0.1:6379');
-$cacheTtl = 300;
+$cacheTtl = 3600;
 
 $settings = (new ConnectionSettings())
     ->setUsername($username)
