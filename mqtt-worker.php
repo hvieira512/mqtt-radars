@@ -24,8 +24,6 @@ $settings = (new ConnectionSettings())
     ->setPassword($password)
     ->setKeepAliveInterval(120);
 
-$mqtt = new MqttClient($server, (int)$port, 'php-radar-router');
-
 function getTargetUrlFromCrm(string $idLicenca, RedisClient $redis, int $cacheTtl): ?string
 {
     $cacheKey = "crm:target:$idLicenca";
@@ -141,27 +139,32 @@ function handleMqttMessage(string $topic, string $message, RedisClient $redis, i
     publishToRedis($redis, $idLicenca, $topic, $message);
 }
 
-function connectAndSubscribe(MqttClient $mqtt, ConnectionSettings $settings, string $topic, RedisClient $redis, int $cacheTtl)
-{
-    $mqtt->connect($settings, true);
-    Logger::info("MQTT connected");
 
-    $mqtt->subscribe($topic, function ($topic, $message) use ($redis, $cacheTtl) {
-        handleMqttMessage($topic, $message, $redis, $cacheTtl);
-    }, 1);
+
+Logger::info("MQTT Worker started");
+
+function createMqttClient(string $server, int $port): MqttClient
+{
+    return new MqttClient($server, $port, 'php-radar-router');
 }
 
 Logger::info("MQTT Worker started");
 
+$reconnectDelay = 2;
 while (true) {
     try {
-        if (!$mqtt->isConnected()) {
-            connectAndSubscribe($mqtt, $settings, $topic, $redis, $cacheTtl);
-        }
+        $mqtt = createMqttClient($server, (int)$port);
+        $mqtt->connect($settings, true);
+        Logger::info("MQTT connected");
+        $mqtt->subscribe($topic, function ($topic, $message) use ($redis, $cacheTtl) {
+            handleMqttMessage($topic, $message, $redis, $cacheTtl);
+        }, 1);
+        $reconnectDelay = 2;
         $mqtt->loop(true);
     } catch (DataTransferException $e) {
-        Logger::error("MQTT connection lost: {$e->getMessage()}, reconnecting...");
-        sleep(3);
+        Logger::error("MQTT connection lost: {$e->getMessage()}, reconnecting in {$reconnectDelay}s...");
+        usleep($reconnectDelay * 1000000);
+        $reconnectDelay = min($reconnectDelay * 2, 60);
     } catch (\Exception $e) {
         Logger::error("Unexpected error: {$e->getMessage()}");
         sleep(5);
