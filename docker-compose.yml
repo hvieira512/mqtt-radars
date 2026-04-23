@@ -32,5 +32,17 @@ services:
       - ./mosquitto.log:/mosquitto/log
     command: sh -c "touch /mosquitto/data/pwfile.conf && chmod 0600 /mosquitto/data/pwfile.conf && mosquitto_passwd -b /mosquitto/data/pwfile.conf havicare hitCare && mosquitto -c /mosquitto/config/mosquitto.conf"
 
+  simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: radar-simulator
+    restart: unless-stopped
+    environment:
+      MQTT_SERVER: 88.99.104.197
+      MQTT_PORT: 1883
+      MQTT_USERNAME: havicare
+      MQTT_PASSWORD: hitCare
+
 volumes:
   mysql_data:
