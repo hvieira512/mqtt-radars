@@ -4,6 +4,19 @@ require __DIR__ . '/bootstrap.php';
 
 error_reporting(E_ALL & ~E_DEPRECATED);
 
+$options = getopt('', ['no-fall-confirmed', 'vitals-only', 'vitals-interval:', 'help']);
+if (isset($options['help'])) {
+    echo "Usage: php simulate-radars.php [options]\n";
+    echo "  --no-fall-confirmed  Exclude fall confirmed postures (5)\n";
+    echo "  --vitals-only      Only send heartbreath data (no position)\n";
+    echo "  --vitals-interval N Send vitals every N seconds (default: 3)\n";
+    exit(0);
+}
+
+$excludeFallConfirmed = isset($options['no-fall-confirmed']);
+$vitalsOnly = isset($options['vitals-only']);
+$vitalsInterval = isset($options['vitals-interval']) ? (int)$options['vitals-interval'] : 3;
+
 $username = $_ENV['MQTT_USERNAME'] ?? null;
 $password = $_ENV['MQTT_PASSWORD'] ?? null;
 
@@ -54,16 +67,28 @@ echo "Connected! Starting simulation...\n";
 
 $radars = [
     ['license' => 1001, 'uid' => '9D8A3204F853'],
-    ['license' => 1001, 'uid' => 'AD8A613B0493'],
-    ['license' => 1001, 'uid' => '3525E3DD1087'],
-    ['license' => 1001, 'uid' => '9D8A3204F84F'],
-    ['license' => 1001, 'uid' => '9D8A3204276B'],
-    ['license' => 1001, 'uid' => '3525E3DDAA33'],
-    ['license' => 1001, 'uid' => '3525E3DD76C7'],
-    ['license' => 1001, 'uid' => '594B3CF100A7'],
+    // ['license' => 1001, 'uid' => 'AD8A613B0493'],
+    // ['license' => 1001, 'uid' => '3525E3DD1087'],
+    // ['license' => 1001, 'uid' => '9D8A3204F84F'],
+    // ['license' => 1001, 'uid' => '9D8A3204276B'],
+    // ['license' => 1001, 'uid' => '3525E3DDAA33'],
+    // ['license' => 1001, 'uid' => '3525E3DD76C7'],
+    // ['license' => 1001, 'uid' => '594B3CF100A7'],
 ];
 
-$postures = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+$allPostures = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+$postures = $excludeFallConfirmed
+    ? [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11]
+    : $allPostures;
+
+if ($excludeFallConfirmed) {
+    echo "Running with --no-fall-confirmed (posture 5 excluded)\n";
+}
+if ($vitalsOnly) {
+    echo "Running with --vitals-only (heartbreath only)\n";
+}
+echo "Vitals interval: {$vitalsInterval}s\n";
+
 $events = [0, 1, 2, 3, 4];
 $sleepStates = [0b00, 0b01, 0b10, 0b11];
 
@@ -72,70 +97,65 @@ foreach ($radars as $index => $radar) {
     $personStates[$index] = [
         'x' => rand(-30, 30),
         'y' => rand(-30, 30),
-        'z' => rand(200, 300),
-        'vx' => 0,
-        'vy' => 0,
-        'vz' => 0,
+        'z' => rand(220, 280),
         'targetX' => rand(-30, 30),
         'targetY' => rand(-30, 30),
-        'targetZ' => rand(200, 300),
+        'targetZ' => rand(220, 280),
         'state' => 'idle',
         'stateTimer' => rand(3, 8),
         'posture' => $postures[array_rand($postures)],
+        'lastVitals' => 0,
     ];
 }
 
 function updateHumanMovement(array &$person, array $postures): void
 {
     $person['stateTimer']--;
-    
+
     if ($person['stateTimer'] <= 0) {
-        $states = ['idle', 'walking', 'standing', 'idle', 'walking', 'standing'];
+        $states = ['idle', 'walking', 'standing', 'idle', 'walking', 'standing', 'sitting'];
         $person['state'] = $states[array_rand($states)];
-        $person['stateTimer'] = rand(3, 10);
-        
-        $person['targetX'] = rand(-35, 35);
-        $person['targetY'] = rand(-35, 35);
-        $person['targetZ'] = rand(200, 300);
-        
+        $person['stateTimer'] = rand(4, 15);
+
+        $dx = $person['targetX'] - $person['x'];
+        $dy = $person['targetY'] - $person['y'];
+        $walkDist = sqrt($dx * $dx + $dy * $dy);
+
+        if ($walkDist > 5 || $person['state'] === 'idle') {
+            $person['targetX'] = $person['x'] + rand(-8, 8);
+            $person['targetY'] = $person['y'] + rand(-8, 8);
+        }
+        $person['targetX'] = max(-35, min(35, $person['targetX']));
+        $person['targetY'] = max(-35, min(35, $person['targetY']));
+        $person['targetZ'] = $person['state'] === 'sitting' ? rand(150, 180) : rand(220, 280);
+
         $person['posture'] = $postures[array_rand($postures)];
     }
-    
-    $maxSpeed = match($person['state']) {
-        'idle' => 0.5,
-        'standing' => 0.3,
-        'walking' => 2.5,
-        default => 1.0,
+
+    $speed = match ($person['state']) {
+        'idle' => 0.2,
+        'standing' => 0.1,
+        'sitting' => 0.1,
+        'walking' => 0.8,
+        default => 0.3,
     };
-    
+
     $dx = $person['targetX'] - $person['x'];
     $dy = $person['targetY'] - $person['y'];
     $dz = $person['targetZ'] - $person['z'];
     $dist = sqrt($dx * $dx + $dy * $dy + $dz * $dz);
-    
+
     if ($dist > 0.5) {
-        $person['vx'] += ($dx / $dist) * $maxSpeed * (0.5 + rand(0, 100) / 100);
-        $person['vy'] += ($dy / $dist) * $maxSpeed * (0.5 + rand(0, 100) / 100);
-        $person['vz'] += ($dz / $dist) * $maxSpeed * 0.3 * (0.5 + rand(0, 100) / 100);
-    } else {
-        $person['vx'] *= 0.9;
-        $person['vy'] *= 0.9;
-        $person['vz'] *= 0.9;
+        $person['x'] += ($dx / $dist) * $speed;
+        $person['y'] += ($dy / $dist) * $speed;
+        $person['z'] += ($dz / $dist) * $speed * 0.3;
     }
-    
-    $person['vx'] = max(-$maxSpeed, min($maxSpeed, $person['vx']));
-    $person['vy'] = max(-$maxSpeed, min($maxSpeed, $person['vy']));
-    $person['vz'] = max(-0.5, min(0.5, $person['vz']));
-    
-    $person['x'] += $person['vx'];
-    $person['y'] += $person['vy'];
-    $person['z'] += $person['vz'];
-    
-    $person['x'] = max(-50, min(50, $person['x']));
-    $person['y'] = max(-50, min(50, $person['y']));
-    $person['z'] = max(180, min(320, $person['z']));
-    
-    if (rand(1, 100) <= 10) {
+
+    $person['x'] = max(-45, min(45, $person['x']));
+    $person['y'] = max(-45, min(45, $person['y']));
+    $person['z'] = max(150, min(300, $person['z']));
+
+    if (rand(1, 100) <= 5) {
         $person['posture'] = $postures[array_rand($postures)];
     }
 }
@@ -166,26 +186,29 @@ function generateHbStaticsData(int $rtBreathing, int $rtHeartRate, int $avgBreat
 
 $messageCount = 0;
 $lastReport = time();
-$sendVitals = true;
+$lastVitalsSent = time();
 
 while (true) {
     foreach ($radars as $index => $radar) {
         $topic = "radar/{$radar['license']}/{$radar['uid']}";
-        
-        updateHumanMovement($personStates[$index], $postures);
-        $person = $personStates[$index];
-        
-        $payload = json_encode([
-            'payload' => [
-                'deviceCode' => $radar['uid'],
-                'position' => generatePositionData(0, (int)round($person['x']), (int)round($person['y']), (int)round($person['z']), $person['posture'], $events[array_rand($events)], rand(1, 4)),
-            ]
-        ]);
 
-        fwrite($socket, buildPublishPacket($topic, $payload, 0));
-        $messageCount++;
+        if (!$vitalsOnly) {
+            updateHumanMovement($personStates[$index], $postures);
+            $person = $personStates[$index];
 
-        if ($sendVitals) {
+            $payload = json_encode([
+                'payload' => [
+                    'deviceCode' => $radar['uid'],
+                    'position' => generatePositionData(0, (int)round($person['x']), (int)round($person['y']), (int)round($person['z']), $person['posture'], $events[array_rand($events)], rand(1, 4)),
+                ]
+            ]);
+
+            fwrite($socket, buildPublishPacket($topic, $payload, 0));
+            $messageCount++;
+        }
+
+        $now = time();
+        if (($now - $personStates[$index]['lastVitals']) >= $vitalsInterval) {
             $vitalsPayload = json_encode([
                 'payload' => [
                     'deviceCode' => $radar['uid'],
@@ -194,6 +217,7 @@ while (true) {
             ]);
             fwrite($socket, buildPublishPacket($topic, $vitalsPayload, 0));
             $messageCount++;
+            $personStates[$index]['lastVitals'] = $now;
         }
 
         if ($messageCount % 5 === 0) {
@@ -203,10 +227,9 @@ while (true) {
         usleep(100000);
     }
 
-    $sendVitals = !$sendVitals;
-
     if (time() - $lastReport >= 5) {
-        echo " [" . date('H:i:s') . " Total: $messageCount]\n";
+        $mode = $vitalsOnly ? " [vitals-only]" : "[position+vitals]";
+        echo " [" . date('H:i:s') . " Total: $messageCount]$mode\n";
         $lastReport = time();
     }
 }
