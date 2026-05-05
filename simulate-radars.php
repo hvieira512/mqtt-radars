@@ -66,8 +66,9 @@ fread($socket, 4);
 echo "Connected! Starting simulation...\n";
 
 $radars = [
-    ['license' => 1001, 'uid' => '9D8A3204F853'],
+    // ['license' => 1001, 'uid' => '9D8A3204F853'],
     // ['license' => 1001, 'uid' => 'AD8A613B0493'],
+    ['license' => 1001, 'uid' => '414D74184CBF'],
     // ['license' => 1001, 'uid' => '3525E3DD1087'],
     // ['license' => 1001, 'uid' => '9D8A3204F84F'],
     // ['license' => 1001, 'uid' => '9D8A3204276B'],

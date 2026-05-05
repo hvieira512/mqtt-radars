@@ -8,7 +8,6 @@ use App\Database;
 use App\Logger;
 use App\Parsers\PositionParser;
 use App\Parsers\HeartBreathParser;
-use App\Repositories\DetectionRepository;
 use App\AlarmEngine;
 use Predis\Client as RedisClient;
 
@@ -112,7 +111,8 @@ class QueueProcessor
                 $stmt = $db->prepare("INSERT INTO radares_posicao_pessoas (evento_id, dispositivo_id, indice_pessoa, posicao_x_dm, posicao_y_dm, posicao_z_cm, tempo_restante_seg, estado_postura, ultimo_evento, regiao_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 foreach ($people as $p) {
                     $stmt->execute([
-                        $eventId, $deviceId,
+                        $eventId,
+                        $deviceId,
                         $p['person_index'] ?? 0,
                         $p['x_position_dm'] ?? 0,
                         $p['y_position_dm'] ?? 0,
@@ -134,7 +134,8 @@ class QueueProcessor
             $stmt = $db->prepare("INSERT INTO radares_detecoes (evento_id, dispositivo_id, categoria, tipo, nivel, indice_pessoa, regiao_id, mensagem) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             foreach ($alarms as $alarm) {
                 $stmt->execute([
-                    $eventId, $deviceId,
+                    $eventId,
+                    $deviceId,
                     $alarm['category'] ?? 'alarm',
                     $alarm['type'] ?? 'unknown',
                     $alarm['level'] ?? 'info',
@@ -169,10 +170,9 @@ class QueueProcessor
         ]);
 
         curl_exec($ch);
-        curl_close($ch);
     }
 
-    public function run(bool $daemon = true, int $batchSize = 100): void
+    public function run(bool $daemon = true): void
     {
         $sleepInterval = (int)($_ENV['QUEUE_SLEEP_MS'] ?? 100);
 

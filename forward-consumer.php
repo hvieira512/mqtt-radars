@@ -73,7 +73,6 @@ function getTargetUrlFromCrm(string $idLicenca, RedisClient $redis, int $cacheTt
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
-    curl_close($ch);
 
     if ($httpCode === 200 && $response) {
         $targetUrl = trim($response);
@@ -118,7 +117,6 @@ function forwardToTarget(
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
-    curl_close($ch);
 
     return [
         'ok' => $httpCode >= 200 && $httpCode < 300,
@@ -155,8 +153,6 @@ function processQueueItem(
 ): void {
     $data = json_decode($item, true);
     if (!is_array($data)) {
-        Logger::warn('Invalid forward queue item');
-        return;
     }
 
     $idLicenca = (string)($data['license'] ?? '');
@@ -210,10 +206,10 @@ function processQueueItem(
 
 Logger::info(
     'Forward consumer started'
-    . ($licenseFilter ? " for license $licenseFilter" : ' for all licenses')
-    . (!$licenseFilter && $excludeLicenses ? ' excluding licenses ' . implode(',', $excludeLicenses) : '')
-    . ($dryRun ? ' in dry-run mode' : '')
-    . " (connect_timeout_ms=$connectTimeoutMs timeout_ms=$timeoutMs)"
+        . ($licenseFilter ? " for license $licenseFilter" : ' for all licenses')
+        . (!$licenseFilter && $excludeLicenses ? ' excluding licenses ' . implode(',', $excludeLicenses) : '')
+        . ($dryRun ? ' in dry-run mode' : '')
+        . " (connect_timeout_ms=$connectTimeoutMs timeout_ms=$timeoutMs)"
 );
 
 while (true) {
