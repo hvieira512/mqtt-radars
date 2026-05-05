@@ -5,46 +5,48 @@ Real-time radar monitoring system with MQTT message processing and database poll
 ## Architecture Overview
 
 ```
-┌─────────────────┐     ┌──────────────────────────────────────────────────────────────────────────┐
-│  MQTT Broker    │────▶│                         Server (MQTT Worker)                          │
-│  (external)     │     │                                                                          │
-│                 │     │   ┌──────────────────────────────────────────────────────────────────┐ │
-└─────────────────┘     │   │ mqtt-worker.php                                               │ │
-                         │   │                                                                │ │
-                         │   │  - Subscribe to MQTT topics: radar/{idLicenca}/+/+            │ │
-                         │   │  - Extract idLicenca from topic                              │ │
-                         │   │  - Forward raw payload to each tenant's /ingest.php           │ │
-                         │   │  - Publish to Redis for queue backup                          │ │
-                         │   └──────────────────────────────────────────────────────────────────┘ │
-                         └──────────────────────────────────────────────────────────────────────────┘
-                                                   │ HTTP POST (raw payload)
-                                                   ▼
-                              ┌────────────────────────────────────────────────────────────────────┐
-                              │                         Tenant App (gucc.dev, gerpii, etc.)       │
-                              │                                                                      │
-                              │   ┌──────────────────────────────────────────────────────────┐ │
-                              │   │ _ajax/radar-data-ingest.php                                │ │
-                              │   │                                                            │ │
-                              │   │  1. Parse binary data (position, vitals, stats)           │ │
-                              │   │  2. Store in tenant's database                            │ │
-                              │   │  3. Evaluate alarms via AlarmEngine                        │ │
-                              │   │  4. Store any alarms triggered                            │ │
-                              │   └──────────────────────────────────────────────────────────┘ │
-                              │                                                                      │
-                              │   ┌──────────────────────────────────────────────────────────┐ │
-                              │   │ _ajax/radar-poll.php                                     │ │
-                              │   │                                                            │ │
-                              │   │  - Query new events since last poll                     │ │
-                              │   │  - Return events with full payload                       │ │
-                              │   └──────────────────────────────────────────────────────────┘ │
-                              │                                                                      │
-                              │   ┌──────────────────────────────────────────────────────────┐ │
-                              │   │ monitorizacao.php                                        │ │
-                              │   │                                                            │ │
-                              │   │  - JavaScript polls radar-poll.php every 1 second        │ │
-                              │   │  - Updates UI on new radar data                          │ │
-                              │   └──────────────────────────────────────────────────────────┘ │
-                              └────────────────────────────────────────────────────────────────────┘
+┌─────────────────┐      ┌──────────────────────────────────────────────────────────────────────────┐
+│  MQTT Broker    │      │                         Server (MQTT Worker)                             │
+│  (external)     │      │                                                                          │
+│                 │      │   ┌──────────────────────────────────────────────────────────────────┐   │
+└────────┬────────┘      │   │ mqtt-worker.php                                                  │   │
+         │               │   │                                                                  │   │
+         │  MQTT Stream  │   │ - Subscribe to MQTT topics: radar/{idLicenca}/+
+         └──────────────▶│   │ - Extract idLicenca from topic                                   │   │
+                         │   │ - Push to Redis forward queue (mqtt:forward:{license})           │   │
+                         │   │ - Publish to Redis for real-time subscribers                     │   │
+                         │   └──────────────────────────────────────────────────────────────────┘   │
+                         └─────────────────────────────────────┬────────────────────────────────────┘
+                                                               │
+                                                               │ Redis Queue
+                                                               ▼
+                         ┌──────────────────────────────────────────────────────────────────────────┐
+                         │                        Server (Forward Consumer)                         │
+                         │                                                                          │
+                         │   ┌──────────────────────────────────────────────────────────────────┐   │
+                         │   │ forward-consumer.php --license={id}                              │   │
+                         │   │                                                                  │   │
+                         │   │ - Pop messages from mqtt:forward:{license} queue                 │   │
+                         │   │ - Calculate queue_delay_ms (queue wait time)                     │   │
+                         │   │ - HTTP POST to tenant's radar-data-ingest.php                    │   │
+                         │   └──────────────────────────────────────────────────────────────────┘   │
+                         └─────────────────────────────────────┬────────────────────────────────────┘
+                                                               │
+                                                               │ HTTP POST (JSON payload)
+                                                               ▼
+        ┌──────────────────────────────────────────────────────────────────────────────────────────┐
+        │                          Tenant App (gucc.dev, gerpii, etc.)                             │
+        │                                                                                          │
+        │   ┌──────────────────────────────────────────────────────────────────────────────────┐   │
+        │   │ modulos/radares/_ajax/radar-data-ingest.php                                      │   │
+        │   │                                                                                  │   │
+        │   │ 1. Parse binary data (position, vitals, stats)                                   │   │
+        │   │ 2. Store in tenant's database                                                    │   │
+        │   │ 3. Evaluate alarms via AlarmEngine                                               │   │
+        │   │ 4. Store any alarms triggered                                                    │   │
+        │   └──────────────────────────────────────────────────────────────────────────────────┘   │
+        │                                                                                          │
+        └──────────────────────────────────────────────────────────────────────────────────────────┘                           
 ```
 
 ## Components
@@ -53,16 +55,17 @@ Real-time radar monitoring system with MQTT message processing and database poll
 
 | File | Purpose |
 |------|---------|
-| `mqtt-worker.php` | Subscribes to MQTT broker, forwards raw payloads to tenant apps |
+| `mqtt-worker.php` | Subscribes to MQTT broker, pushes messages to Redis forward queue |
+| `forward-consumer.php` | Consumes Redis forward queue, HTTP POSTs to tenant apps |
+| `queue-consumer.php` | Alternative consumer that processes messages locally (parsing, DB storage) |
+| `redis-subscriber.php` | WebSocket relay - subscribes to Redis pub/sub for real-time updates |
 | `simulate-radars.php` | Test tool that simulates radar MQTT messages |
 
 ### Tenant-Side (gucc.dev, gerpii, etc.)
 
 | File | Purpose |
 |------|---------|
-| `_ajax/radar-data-ingest.php` | Receives MQTT payload, parses binary data, stores in DB |
-| `_ajax/radar-poll.php` | Returns new events since last poll (for browser polling) |
-| `monitorizacao.php` | Dashboard page with JavaScript polling |
+| `modulos/radares/_ajax/radar-data-ingest.php` | Receives MQTT payload, parses binary data, stores in DB |
 
 ## Data Flow
 
@@ -80,79 +83,46 @@ Payload: {"payload": {"deviceCode": "...", "position": "base64..."}}
 mqtt-worker.php receives message:
 
 1. Extract idLicenca from topic → e.g., "1001"
-2. Determine tenant URL (from CRM or config)
-3. HTTP POST raw payload to tenant:
-   POST https://gucc.dev/_ajax/radar-data-ingest.php
-   Body: {"payload": {"deviceCode": "RADAR001", "position": "AQID..."}}
+2. Push to Redis forward queue with queued_at_ms timestamp:
+   LPUSH mqtt:forward:{license} {data}
+3. Publish to Redis pub/sub for real-time subscribers:
+   PUBLISH radar:ingest:{license} {data}
 ```
 
-### Step 3: Tenant - Data Ingestion
+### Step 3: Server - Forward Consumer
 
 ```php
-radar-data-ingest.php receives request:
+forward-consumer.php --license={id} processes queue:
 
-1. Parse topic → deviceCode = "RADAR001"
-2. Parse binary data using PositionParser/HeartBreathParser
-3. Get or create device in tenant's database
-4. Store parsed data (position, vitals, etc.)
-5. Evaluate alarms via AlarmEngine
-6. Store any alarms triggered
-```
-
-### Step 4: Browser - Database Polling
-
-```javascript
-// monitorizacao.php
-let lastEventId = 0;
-
-function pollRadarData() {
-    fetch('_ajax/radar-poll.php?after_id=' + lastEventId)
-        .then(r => r.json())
-        .then(data => {
-            if (data.items && data.items.length > 0) {
-                data.items.forEach(item => {
-                    console.log('[Radar]', item);
-                    // Update UI with new data
-                    updateRadarDisplay(item);
-                });
-                lastEventId = data.next_after_id;
-            }
-        });
-}
-
-setInterval(pollRadarData, 1000);
+1. Pop message from Redis queue: RPOP mqtt:forward:{license}
+2. Calculate queue_delay_ms (current_time - queued_at_ms)
+3. Lookup tenant URL from CRM API (with Redis cache)
+4. HTTP POST to tenant:
+   POST https://{tenant}/modulos/radares/_ajax/radar-data-ingest.php
+   Body: {"payload": {"deviceCode": "RADAR001", "position": "AQID..."}}
+5. On failure, retry up to FORWARD_MAX_ATTEMPTS (3)
 ```
 
 ## Topic Structure
 
 ```
-radar/{idLicenca}/{deviceCode}/{dataType}
+radar/{idLicenca}/{deviceCode}
 
 idLicenca  - License identifier (maps to tenant app)
 deviceCode - Unique radar device UID
-dataType   - Type of data: position, vitals, posstatics, hbstatics
 ```
 
 Example topics:
-- `radar/1001/RADAR001/position` - Position data
-- `radar/1001/RADAR001/vitals` - Heart rate, breathing
-- `radar/1002/RADAR003/position` - Position data for different tenant
+- `radar/1001/RADAR001`
+- `radar/1001/RADAR002`
+- `radar/1002/RADAR003`
+- `radar/1003/RADAR004`
 
 ## Multi-Tenant Isolation
 
 Each tenant app:
 - Has its own database
 - Receives MQTT messages only for its own `idLicenca`
-- Browser clients poll the same tenant's radar-poll.php
-
-## Parsers
-
-Binary data is parsed by tenant apps using parser classes:
-
-| Parser | Input | Output |
-|--------|-------|--------|
-| `PositionParser` | 16-byte base64 | Position data with people coordinates, posture |
-| `HeartBreathParser` | 16-byte base64 | Heart rate, breathing rate, sleep state |
 
 ## Requirements
 
@@ -184,8 +154,15 @@ MQTT_TOPIC=radar/+
 # Redis
 REDIS_URL=tcp://127.0.0.1:6379
 
-# CRM URL (optional - for tenant URL lookup)
+# CRM URL (for tenant URL lookup)
 CRM_URL=https://crm.hitcare.net/api/get.url.php
+CRM_CACHE_TTL=3600
+
+# Forward Consumer Settings
+FORWARD_SLEEP_MS=50              # Polling interval when queue is empty
+FORWARD_CONNECT_TIMEOUT_MS=750   # HTTP connect timeout
+FORWARD_TIMEOUT_MS=5000          # HTTP request timeout
+FORWARD_MAX_ATTEMPTS=3           # Retry attempts for failed forwards
 ```
 
 ## Running the Server
@@ -196,43 +173,65 @@ CRM_URL=https://crm.hitcare.net/api/get.url.php
 # Terminal 1: MQTT Worker
 php mqtt-worker.php
 
-# Terminal 2: (Optional) Radar Simulator for testing
+# Terminal 2: Forward Consumer (for specific license)
+php forward-consumer.php --license=1001
+
+# Terminal 3: (Optional) Radar Simulator for testing
 php simulate-radars.php
 ```
 
 ### Production
 
 ```bash
-# Start MQTT Worker
+# Start MQTT Worker (single instance)
 php mqtt-worker.php &
 
-# Or use systemd/supervisor for process management
+# Start forward consumers (scale based on message volume per license)
+php forward-consumer.php --license=1001 &
+php forward-consumer.php --license=2004 &
+php forward-consumer.php --license=2051 &
+php forward-consumer.php --license=2103 &
+
+# Start generic consumer for remaining licenses
+php forward-consumer.php --exclude=1001,2004,2051,2103 &
+
+# Monitor queue sizes
+redis-cli llen mqtt:forward:2103
+
+# Scale up consumers if queues grow (e.g., for busy license 2103)
+for i in {1..5}; do
+  php forward-consumer.php --license=2103 &
+done
 ```
+
+Use systemd/supervisor for process management in production.
 
 ## Redis Keys
 
 | Key Pattern | Type | Purpose |
 |-------------|------|---------|
-| `crm:target:{idLicenca}` | String | Cached CRM URL lookup (TTL: 300s) |
-| `mqtt:ingest:{idLicenca}` | List | Backup message queue (LPUSH/RPOP) |
-| `mqtt:failed:{idLicenca}` | List | Failed messages for retry |
+| `crm:target:{idLicenca}` | String | Cached CRM URL lookup (TTL: 3600s) |
+| `mqtt:forward:{license}` | List | Forward queue - consumed by forward-consumer.php (LPUSH/RPOP) |
+| `mqtt:forward_failed:{license}` | List | Failed forward messages (after max retries) |
+| `mqtt:forward:licenses` | Set | Tracks licenses with active forward queues |
+| `mqtt:ingest:{license}` | List | Alternative queue - consumed by queue-consumer.php |
+| `radar:ingest:{license}` | Pub/Sub | Real-time relay for WebSocket subscribers |
 
 ## API Endpoints
 
 ### radar-data-ingest.php
 
-Receives raw MQTT data, stores in database.
+Receives forwarded MQTT data from forward-consumer.php, stores in database.
 
 **Request:**
 ```json
-POST /_ajax/radar-data-ingest.php
+POST /modulos/radares/_ajax/radar-data-ingest.php
 Content-Type: application/json
 
 {
   "payload": {
     "deviceCode": "RADAR001",
     "position": "AQIDBAUGBwgJCgsMDQ4O",
-    "heartbreath": "AQIOAQMFAA=="
   }
 }
 ```
@@ -281,14 +280,20 @@ GET /_ajax/radar-poll.php?after_id=0
 
 ```
 mqtt-radars/                 # Server-side repository
-├── mqtt-worker.php          # MQTT consumer & HTTP forwarder
-├── simulate-radars.php       # Test radar simulator
+├── mqtt-worker.php          # MQTT subscriber, pushes to Redis queues
+├── forward-consumer.php     # Consumes forward queue, HTTP POSTs to tenants
+├── queue-consumer.php       # Alternative consumer (local parsing & DB storage)
+├── redis-subscriber.php     # WebSocket relay via Redis pub/sub
+├── simulate-radars.php      # Test radar simulator
 ├── README.md
 └── ...
 
 gucc.dev/                    # Tenant app (separate repo)
+├── modulos/radares/
+│   └── _ajax/
+│       ├── radar-data-ingest.php  # Receives & stores radar data
+│       └── ...
 ├── _ajax/
-│   ├── radar-data-ingest.php  # Receives & stores radar data
 │   └── radar-poll.php        # Polling endpoint for browser
 ├── monitorizacao.php         # Dashboard with polling
 └── ...
@@ -299,9 +304,25 @@ gucc.dev/                    # Tenant app (separate repo)
 ### Tenant app not receiving MQTT data
 
 1. Verify mqtt-worker.php is running and connected to MQTT
-2. Check server logs for forwarding errors
-3. Verify tenant URL is correct (check CRM or config)
-4. Ensure firewall allows HTTP from server to tenant
+2. Check forward-consumer.php is running for the license: `ps aux | grep forward-consumer.php`
+3. Check server logs for forwarding errors and queue_delay_ms
+4. Verify tenant URL is correct (check CRM or config)
+5. Ensure firewall allows HTTP from server to tenant
+6. Check Redis queue size: `redis-cli llen mqtt:forward:{license}`
+
+### High queue_delay_ms
+
+`queue_delay_ms` measures time (in ms) between mqtt-worker.php queuing the message and forward-consumer.php processing it.
+
+1. Check queue size: `redis-cli llen mqtt:forward:{license}`
+2. If queue is growing, scale up forward-consumer processes:
+   ```bash
+   for i in {1..5}; do
+     php forward-consumer.php --license={id} &
+   done
+   ```
+3. Check if tenant app is responding slowly (check `duration_ms` in logs)
+4. Verify forward-consumer.php processes aren't stuck
 
 ### Browser not receiving new data
 
@@ -310,7 +331,7 @@ gucc.dev/                    # Tenant app (separate repo)
 3. Check for console errors
 4. Verify radar-poll.php returns data:
    ```bash
-   curl https://gucc.dev/_ajax/radar-poll.php?after_id=0
+   curl https://{tenant}/_ajax/radar-poll.php?after_id=0
    ```
 
 ### Data not being stored in database
