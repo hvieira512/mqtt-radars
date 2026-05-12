@@ -24,17 +24,6 @@ $settings = (new ConnectionSettings())
     ->setPassword($password)
     ->setKeepAliveInterval(120);
 
-function pushToQueue(RedisClient $redis, string $idLicenca, string $topic, string $message): void
-{
-    $queueKey = "mqtt:ingest:$idLicenca";
-    $redis->rpush($queueKey, json_encode([
-        'topic'     => $topic,
-        'message'  => $message,
-        'license'  => $idLicenca,
-        'queued_at' => time()
-    ]));
-}
-
 function pushToForwardQueue(RedisClient $redis, string $idLicenca, string $topic, string $message): void
 {
     $now = microtime(true);
@@ -78,7 +67,6 @@ function handleMqttMessage(string $topic, string $message, RedisClient $redis): 
     }
 
     pushToForwardQueue($redis, $idLicenca, $topic, $message);
-    pushToQueue($redis, $idLicenca, $topic, $message);
     publishToRedis($redis, $idLicenca, $topic, $message);
 
     Logger::info("Queued forward for license $idLicenca - topic: $topic");

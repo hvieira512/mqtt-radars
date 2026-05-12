@@ -3,7 +3,6 @@ vendor/
 .vscode/
 .env*
 node_modules/
-composer.**
 credentials.json
-package**
-/mosquitto.data
+mosquitto.data/
+mosquitto.log/
