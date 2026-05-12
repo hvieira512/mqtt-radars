@@ -11,7 +11,7 @@ Real-time radar monitoring system with MQTT message processing and database poll
 │                 │      │   ┌──────────────────────────────────────────────────────────────────┐   │
 └────────┬────────┘      │   │ mqtt-worker.php                                                  │   │
          │               │   │                                                                  │   │
-         │  MQTT Stream  │   │ - Subscribe to MQTT topics: radar/{idLicenca}/+
+         │  MQTT Stream  │   │ - Subscribe to MQTT topics: radar/{idLicenca}/+                  │   │ 
          └──────────────▶│   │ - Extract idLicenca from topic                                   │   │
                          │   │ - Push to Redis forward queue (mqtt:forward:{license})           │   │
                          │   │ - Publish to Redis for real-time subscribers                     │   │
