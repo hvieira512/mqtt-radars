@@ -4,15 +4,17 @@ require __DIR__ . '/bootstrap.php';
 
 error_reporting(E_ALL & ~E_DEPRECATED);
 
-$options = getopt('', ['no-fall-confirmed', 'vitals-only', 'vitals-interval:', 'help']);
+$options = getopt('', ['fall-alarm', 'no-fall-confirmed', 'vitals-only', 'vitals-interval:', 'help']);
 if (isset($options['help'])) {
     echo "Usage: php simulate-radars.php [options]\n";
+    echo "  --fall-alarm         Send one fall confirmed alarm (posture 5) and exit\n";
     echo "  --no-fall-confirmed  Exclude fall confirmed postures (5)\n";
-    echo "  --vitals-only      Only send heartbreath data (no position)\n";
-    echo "  --vitals-interval N Send vitals every N seconds (default: 3)\n";
+    echo "  --vitals-only        Only send heartbreath data (no position)\n";
+    echo "  --vitals-interval N  Send vitals every N seconds (default: 3)\n";
     exit(0);
 }
 
+$fallAlarm = isset($options['fall-alarm']);
 $excludeFallConfirmed = isset($options['no-fall-confirmed']);
 $vitalsOnly = isset($options['vitals-only']);
 $vitalsInterval = isset($options['vitals-interval']) ? (int)$options['vitals-interval'] : 3;
@@ -66,9 +68,9 @@ fread($socket, 4);
 echo "Connected! Starting simulation...\n";
 
 $radars = [
-    // ['license' => 1001, 'uid' => '9D8A3204F853'],
+    ['license' => 1001, 'uid' => '9D8A3204F853'],
     // ['license' => 1001, 'uid' => 'AD8A613B0493'],
-    ['license' => 1001, 'uid' => '414D74184CBF'],
+    // ['license' => 1001, 'uid' => '414D74184CBF'],
     // ['license' => 1001, 'uid' => '3525E3DD1087'],
     // ['license' => 1001, 'uid' => '9D8A3204F84F'],
     // ['license' => 1001, 'uid' => '9D8A3204276B'],
@@ -76,6 +78,34 @@ $radars = [
     // ['license' => 1001, 'uid' => '3525E3DD76C7'],
     // ['license' => 1001, 'uid' => '594B3CF100A7'],
 ];
+
+if ($fallAlarm) {
+    $radar = $radars[array_rand($radars)];
+    $topic = "radar/{$radar['license']}/{$radar['uid']}";
+    echo "Sending fall confirmed alarm for {$radar['uid']}...\n";
+
+    $payload = json_encode([
+        'payload' => [
+            'deviceCode' => $radar['uid'],
+            'position' => generatePositionData(0, rand(-30, 30), rand(-30, 30), rand(220, 280), 5, 0, rand(1, 4)),
+        ]
+    ]);
+    fwrite($socket, buildPublishPacket($topic, $payload, 0));
+    echo "  ✓ position (posture=5)\n";
+
+    $vitalsPayload = json_encode([
+        'payload' => [
+            'deviceCode' => $radar['uid'],
+            'heartbreath' => generateHeartBreathData(rand(10, 25), rand(60, 100), 0),
+        ]
+    ]);
+    fwrite($socket, buildPublishPacket($topic, $vitalsPayload, 0));
+    echo "  ✓ vitals\n";
+
+    echo "Done.\n";
+    fclose($socket);
+    exit(0);
+}
 
 $allPostures = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 $postures = $excludeFallConfirmed

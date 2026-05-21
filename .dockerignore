@@ -1,0 +1,10 @@
+node_modules/
+vendor/
+.git/
+.idea/
+*.md
+.env
+.env*
+!.env.example
+docker-compose.override.yml
+*.log
