@@ -93,15 +93,6 @@ if ($fallAlarm) {
     fwrite($socket, buildPublishPacket($topic, $payload, 0));
     echo "  ✓ position (posture=5)\n";
 
-    $vitalsPayload = json_encode([
-        'payload' => [
-            'deviceCode' => $radar['uid'],
-            'heartbreath' => generateHeartBreathData(rand(10, 25), rand(60, 100), 0),
-        ]
-    ]);
-    fwrite($socket, buildPublishPacket($topic, $vitalsPayload, 0));
-    echo "  ✓ vitals\n";
-
     echo "Done.\n";
     fclose($socket);
     exit(0);

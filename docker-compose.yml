@@ -37,7 +37,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: radar-simulator
-    restart: unless-stopped
+    restart: "no"
     command: ["php", "simulate-radars.php", "--fall-alarm"]
     environment:
       MQTT_SERVER: 88.99.104.197
