@@ -4,10 +4,11 @@ require __DIR__ . '/bootstrap.php';
 
 error_reporting(E_ALL & ~E_DEPRECATED);
 
-$options = getopt('', ['fall-alarm', 'no-fall-confirmed', 'vitals-only', 'vitals-interval:', 'help']);
+$options = getopt('', ['fall-alarm', 'fall-clear-index:', 'no-fall-confirmed', 'vitals-only', 'vitals-interval:', 'help']);
 if (isset($options['help'])) {
     echo "Usage: php simulate-radars.php [options]\n";
     echo "  --fall-alarm         Send one fall confirmed alarm (posture 5) and exit\n";
+    echo "  --fall-clear-index N Send follow-up clear position with person index N (default: 88)\n";
     echo "  --no-fall-confirmed  Exclude fall confirmed postures (5)\n";
     echo "  --vitals-only        Only send heartbreath data (no position)\n";
     echo "  --vitals-interval N  Send vitals every N seconds (default: 3)\n";
@@ -15,6 +16,7 @@ if (isset($options['help'])) {
 }
 
 $fallAlarm = isset($options['fall-alarm']);
+$fallClearIndex = isset($options['fall-clear-index']) ? max(0, min(255, (int)$options['fall-clear-index'])) : 88;
 $excludeFallConfirmed = isset($options['no-fall-confirmed']);
 $vitalsOnly = isset($options['vitals-only']);
 $vitalsInterval = isset($options['vitals-interval']) ? (int)$options['vitals-interval'] : 3;
@@ -83,15 +85,29 @@ if ($fallAlarm) {
     $radar = $radars[array_rand($radars)];
     $topic = "radar/{$radar['license']}/{$radar['uid']}";
     echo "Sending fall confirmed alarm for {$radar['uid']}...\n";
+    $x = rand(-30, 30);
+    $y = rand(-30, 30);
+    $z = rand(220, 280);
 
     $payload = json_encode([
         'payload' => [
             'deviceCode' => $radar['uid'],
-            'position' => generatePositionData(0, rand(-30, 30), rand(-30, 30), rand(220, 280), 5, 0, rand(1, 4)),
+            'position' => generatePositionData(0, $x, $y, $z, 5, 0, rand(1, 4)),
         ]
     ]);
     fwrite($socket, buildPublishPacket($topic, $payload, 0));
     echo "  ✓ position (posture=5)\n";
+
+    usleep(250000);
+
+    $clearPayload = json_encode([
+        'payload' => [
+            'deviceCode' => $radar['uid'],
+            'position' => generatePositionData($fallClearIndex, $x, $y, $z, 4, 0, rand(1, 4)),
+        ]
+    ]);
+    fwrite($socket, buildPublishPacket($topic, $clearPayload, 0));
+    echo "  ✓ clear follow-up (person_index={$fallClearIndex}, posture=4)\n";
 
     echo "Done.\n";
     fclose($socket);
