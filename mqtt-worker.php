@@ -12,8 +12,8 @@ use Predis\Client as RedisClient;
 
 $server   = $_ENV['MQTT_SERVER'] ?? '127.0.0.1';
 $port     = $_ENV['MQTT_PORT'] ?? 1883;
-$username = $_ENV['MQTT_USERNAME'] ?? null;
-$password = $_ENV['MQTT_PASSWORD'] ?? null;
+$username = ($_ENV['MQTT_USERNAME'] ?? '') !== '' ? $_ENV['MQTT_USERNAME'] : null;
+$password = ($_ENV['MQTT_PASSWORD'] ?? '') !== '' ? $_ENV['MQTT_PASSWORD'] : null;
 $topic    = $_ENV['MQTT_TOPIC'] ?? '';
 $clientId = $_ENV['MQTT_CLIENT_ID'] ?? 'php-radar-router';
 
