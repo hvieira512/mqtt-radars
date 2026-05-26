@@ -4,7 +4,18 @@ require __DIR__ . '/bootstrap.php';
 
 error_reporting(E_ALL & ~E_DEPRECATED);
 
-$options = getopt('', ['fall-alarm', 'fall-clear-index:', 'no-fall-confirmed', 'vitals-only', 'vitals-interval:', 'help']);
+$options = getopt('', [
+    'fall-alarm',
+    'fall-clear-index:',
+    'no-fall-confirmed',
+    'vitals-only',
+    'vitals-interval:',
+    'load-radars:',
+    'load-license:',
+    'load-rate:',
+    'duration:',
+    'help',
+]);
 if (isset($options['help'])) {
     echo "Usage: php simulate-radars.php [options]\n";
     echo "  --fall-alarm         Send one fall confirmed alarm (posture 5) and exit\n";
@@ -12,6 +23,10 @@ if (isset($options['help'])) {
     echo "  --no-fall-confirmed  Exclude fall confirmed postures (5)\n";
     echo "  --vitals-only        Only send heartbreath data (no position)\n";
     echo "  --vitals-interval N  Send vitals every N seconds (default: 3)\n";
+    echo "  --load-radars N      Load mode: simulate N radars with position-only traffic\n";
+    echo "  --load-license N     Load mode license (default: 1001)\n";
+    echo "  --load-rate N        Load mode messages/sec per radar (default: 1)\n";
+    echo "  --duration N         Stop after N seconds (default: run forever)\n";
     exit(0);
 }
 
@@ -20,6 +35,10 @@ $fallClearIndex = isset($options['fall-clear-index']) ? max(0, min(255, (int)$op
 $excludeFallConfirmed = isset($options['no-fall-confirmed']);
 $vitalsOnly = isset($options['vitals-only']);
 $vitalsInterval = isset($options['vitals-interval']) ? (int)$options['vitals-interval'] : 3;
+$loadRadarCount = isset($options['load-radars']) ? max(0, (int)$options['load-radars']) : 0;
+$loadLicense = isset($options['load-license']) ? max(1, (int)$options['load-license']) : 1001;
+$loadRatePerRadar = isset($options['load-rate']) ? max(1, (int)$options['load-rate']) : 1;
+$durationSeconds = isset($options['duration']) ? max(1, (int)$options['duration']) : 0;
 
 $username = $_ENV['MQTT_USERNAME'] ?? null;
 $password = $_ENV['MQTT_PASSWORD'] ?? null;
@@ -220,6 +239,141 @@ function generateHbStaticsData(int $rtBreathing, int $rtHeartRate, int $avgBreat
     $raw .= chr(0) . chr($avgBreathing) . chr($avgHeartRate);
     $raw .= chr(0) . chr(0) . chr(0) . chr($statusByte) . chr(0);
     return base64_encode($raw);
+}
+
+function buildLoadUids(int $count): array
+{
+    $known = [
+        '9D8A3204F853',
+        'AD8A613B0493',
+        '414D74184CBF',
+        '3525E3DD1087',
+        '9D8A3204F84F',
+        '9D8A3204276B',
+        '3525E3DDAA33',
+        '3525E3DD76C7',
+        '594B3CF100A7',
+    ];
+
+    $uids = [];
+    for ($i = 0; $i < $count; $i++) {
+        if ($i < count($known)) {
+            $uids[] = $known[$i];
+            continue;
+        }
+        $uids[] = strtoupper(sprintf('SIM%09X', $i - count($known) + 1));
+    }
+
+    return $uids;
+}
+
+function runPositionLoad(
+    $socket,
+    int $license,
+    int $radarCount,
+    int $ratePerRadar,
+    int $durationSeconds
+): void {
+    if ($radarCount <= 0) {
+        echo "Load mode requires --load-radars > 0\n";
+        return;
+    }
+
+    $posturesNoFall = [0, 1, 2, 3, 4, 6, 7, 8, 9, 10, 11];
+    $events = [0, 1, 2, 3, 4];
+    $uids = buildLoadUids($radarCount);
+    $knownCount = min($radarCount, 9);
+
+    echo "Load mode active: radars={$radarCount}, license={$license}, rate={$ratePerRadar} msg/s/radar, posture!=5\n";
+    if ($radarCount > $knownCount) {
+        $synthetic = $radarCount - $knownCount;
+        echo "Warning: {$synthetic} synthetic UIDs generated (may be unknown to ingest DB)\n";
+    }
+    if ($durationSeconds > 0) {
+        echo "Duration: {$durationSeconds}s\n";
+    } else {
+        echo "Duration: unlimited\n";
+    }
+
+    $radars = [];
+    $personStates = [];
+    foreach ($uids as $i => $uid) {
+        $radars[] = ['license' => $license, 'uid' => $uid];
+        $personStates[$i] = [
+            'x' => rand(-30, 30),
+            'y' => rand(-30, 30),
+            'z' => rand(220, 280),
+            'targetX' => rand(-30, 30),
+            'targetY' => rand(-30, 30),
+            'targetZ' => rand(220, 280),
+            'state' => 'idle',
+            'stateTimer' => rand(3, 8),
+            'posture' => $posturesNoFall[array_rand($posturesNoFall)],
+            'lastVitals' => 0,
+        ];
+    }
+
+    $tickIntervalUs = intdiv(1000000, $ratePerRadar);
+    $testStart = microtime(true);
+    $nextTickAt = microtime(true);
+    $messageCount = 0;
+    $lastReportAt = microtime(true);
+
+    while (true) {
+        foreach ($radars as $index => $radar) {
+            updateHumanMovement($personStates[$index], $posturesNoFall);
+            $person = $personStates[$index];
+            $topic = "radar/{$radar['license']}/{$radar['uid']}";
+
+            $payload = json_encode([
+                'payload' => [
+                    'deviceCode' => $radar['uid'],
+                    'position' => generatePositionData(
+                        0,
+                        (int)round($person['x']),
+                        (int)round($person['y']),
+                        (int)round($person['z']),
+                        $person['posture'],
+                        $events[array_rand($events)],
+                        rand(1, 4)
+                    ),
+                ]
+            ]);
+
+            fwrite($socket, buildPublishPacket($topic, $payload, 0));
+            $messageCount++;
+        }
+
+        $now = microtime(true);
+        if (($now - $lastReportAt) >= 5.0) {
+            $elapsed = max(0.001, $now - $testStart);
+            $rate = $messageCount / $elapsed;
+            echo "[" . date('H:i:s') . "] sent={$messageCount} avg_rate=" . number_format($rate, 1) . " msg/s\n";
+            $lastReportAt = $now;
+        }
+
+        if ($durationSeconds > 0 && ($now - $testStart) >= $durationSeconds) {
+            $elapsed = max(0.001, $now - $testStart);
+            $rate = $messageCount / $elapsed;
+            echo "Load test completed: sent={$messageCount} in " . number_format($elapsed, 2) . "s (" . number_format($rate, 1) . " msg/s)\n";
+            return;
+        }
+
+        $nextTickAt += $tickIntervalUs / 1000000;
+        $sleepUs = (int)(($nextTickAt - microtime(true)) * 1000000);
+        if ($sleepUs > 0) {
+            usleep($sleepUs);
+        } else {
+            $nextTickAt = microtime(true);
+        }
+    }
+}
+
+$loadMode = $loadRadarCount > 0;
+if ($loadMode) {
+    runPositionLoad($socket, $loadLicense, $loadRadarCount, $loadRatePerRadar, $durationSeconds);
+    fclose($socket);
+    exit(0);
 }
 
 $messageCount = 0;
