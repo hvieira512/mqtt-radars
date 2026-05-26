@@ -16,6 +16,8 @@ $maxAttempts = (int)($_ENV['FORWARD_MAX_ATTEMPTS'] ?? 3);
 $licenseFilter = getArgValue($argv, '--license') ?: ($_ENV['FORWARD_LICENSE'] ?? null);
 $excludeLicenses = parseLicenseList(getArgValue($argv, '--exclude') ?: ($_ENV['FORWARD_EXCLUDE_LICENSES'] ?? ''));
 $dryRun = getFlag($argv, '--dry-run') || filter_var($_ENV['FORWARD_DRY_RUN'] ?? false, FILTER_VALIDATE_BOOLEAN);
+$batchSize = (int)($_ENV['FORWARD_BATCH_SIZE'] ?? 100);
+$batchEnabled = true;
 
 function getArgValue(array $argv, string $name): ?string
 {
@@ -44,20 +46,20 @@ function nowMs(): int
 
 function parseLicenseList(string $value): array
 {
-    if (trim($value) === '') {
-        return [];
-    }
-
-    return array_values(array_filter(array_map('trim', explode(',', $value)), fn($license) => $license !== ''));
+    if (trim($value) === '') return [];
+    return array_values(array_filter(array_map('trim', explode(',', $value)), fn($l) => $l !== ''));
 }
 
 function getTargetUrlFromCrm(string $idLicenca, RedisClient $redis, int $cacheTtl): ?string
 {
     $cacheKey = "crm:target:$idLicenca";
-
     $cached = $redis->get($cacheKey);
-    if ($cached) {
-        return $cached;
+    if ($cached) return $cached;
+
+    $targetUrl = rtrim($_ENV['TEST_TARGET_URL'] ?? '', '/');
+    if ($targetUrl) {
+        $redis->setex($cacheKey, $cacheTtl, $targetUrl);
+        return $targetUrl;
     }
 
     $crmUrl = ($_ENV['CRM_URL'] ?? 'https://crm.hitcare.net/api/get.url.php');
@@ -69,7 +71,6 @@ function getTargetUrlFromCrm(string $idLicenca, RedisClient $redis, int $cacheTt
         CURLOPT_TIMEOUT => 5,
         CURLOPT_SSL_VERIFYPEER => false,
     ]);
-
     $response = curl_exec($ch);
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
@@ -84,7 +85,7 @@ function getTargetUrlFromCrm(string $idLicenca, RedisClient $redis, int $cacheTt
     return null;
 }
 
-function forwardToTarget(
+function forwardSingle(
     string $targetUrl,
     string $topic,
     string $payload,
@@ -93,9 +94,7 @@ function forwardToTarget(
 ): array {
     $url = rtrim($targetUrl, '/') . '/modulos/radares/_ajax/radar-data-ingest.php';
     $payloadData = json_decode($payload, true);
-    if (!is_array($payloadData)) {
-        $payloadData = [];
-    }
+    if (!is_array($payloadData)) $payloadData = [];
 
     $postData = json_encode([
         'topic' => $topic,
@@ -127,6 +126,61 @@ function forwardToTarget(
     ];
 }
 
+function forwardBatch(
+    string $targetUrl,
+    array $batch,
+    int $connectTimeoutMs,
+    int $timeoutMs
+): array {
+    $url = rtrim($targetUrl, '/') . '/modulos/radares/_ajax/radar-data-ingest.php';
+
+    $messages = [];
+    foreach ($batch as $item) {
+        $payloadData = json_decode($item['message'] ?? '{}', true);
+        if (!is_array($payloadData)) $payloadData = [];
+        $messages[] = [
+            'topic' => $item['topic'] ?? '',
+            'payload' => $payloadData['payload'] ?? $payloadData,
+        ];
+    }
+
+    $postData = json_encode([
+        'batch' => true,
+        'messages' => $messages,
+    ]);
+
+    $startedAtMs = nowMs();
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $postData,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT_MS => $connectTimeoutMs,
+        CURLOPT_TIMEOUT_MS => $timeoutMs,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_SSL_VERIFYPEER => false,
+    ]);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+
+    $result = [
+        'ok' => $httpCode >= 200 && $httpCode < 300,
+        'http_code' => $httpCode,
+        'duration_ms' => nowMs() - $startedAtMs,
+        'error' => $error,
+        'response' => is_string($response) ? $response : '',
+    ];
+
+    if ($result['ok'] && $response) {
+        $decoded = json_decode($response, true);
+        $result['batch_results'] = $decoded['results'] ?? $decoded['batch_result'] ?? [];
+    }
+
+    return $result;
+}
+
 function getQueueKeys(RedisClient $redis, ?string $licenseFilter, array $excludeLicenses): array
 {
     if ($licenseFilter) {
@@ -142,87 +196,92 @@ function getQueueKeys(RedisClient $redis, ?string $licenseFilter, array $exclude
     return array_map(fn($license) => "mqtt:forward:$license", $licenses);
 }
 
-function processQueueItem(
+function handleBatchResult(
     RedisClient $redis,
-    string $item,
-    int $cacheTtl,
-    int $connectTimeoutMs,
-    int $timeoutMs,
-    int $maxAttempts,
-    bool $dryRun
+    array $result,
+    array $batch,
+    string $queueKey,
+    int $maxAttempts
 ): void {
-    $data = json_decode($item, true);
-    if (!is_array($data)) {
-    }
-
-    $idLicenca = (string)($data['license'] ?? '');
-    $topic = (string)($data['topic'] ?? '');
-    $message = (string)($data['message'] ?? '');
-    $attempts = (int)($data['attempts'] ?? 0);
-    $queuedAtMs = isset($data['queued_at_ms']) ? (int)$data['queued_at_ms'] : null;
-
-    if ($idLicenca === '' || $topic === '' || $message === '') {
-        Logger::warn('Forward queue item missing license, topic, or message');
-        return;
-    }
-
-    $targetUrl = getTargetUrlFromCrm($idLicenca, $redis, $cacheTtl);
-    if (!$targetUrl) {
-        $data['attempts'] = $attempts + 1;
-        $redis->rpush("mqtt:forward_failed:$idLicenca", json_encode($data));
-        return;
-    }
-
-    $queueDelay = $queuedAtMs ? nowMs() - $queuedAtMs : null;
-    Logger::info("Forwarding to $targetUrl - topic: $topic - queue_delay_ms: " . ($queueDelay ?? 'n/a'));
-
-    if ($dryRun) {
-        Logger::info("[$idLicenca] DRY RUN -> $targetUrl");
-        return;
-    }
-
-    $result = forwardToTarget($targetUrl, $topic, $message, $connectTimeoutMs, $timeoutMs);
     if ($result['ok']) {
-        Logger::info("[$idLicenca] -> $targetUrl HTTP {$result['http_code']} in {$result['duration_ms']}ms");
+        Logger::info(
+            "Batch of " . count($batch) . " forwarded OK "
+            . "HTTP {$result['http_code']} in {$result['duration_ms']}ms"
+        );
         return;
     }
 
     Logger::warn(
-        "Forward to $targetUrl failed: HTTP {$result['http_code']} in {$result['duration_ms']}ms {$result['error']}"
+        "Batch of " . count($batch) . " failed: "
+        . "HTTP {$result['http_code']} in {$result['duration_ms']}ms {$result['error']}"
     );
 
-    $data['attempts'] = $attempts + 1;
-    $data['last_error'] = $result['error'];
-    $data['last_http_code'] = $result['http_code'];
-    $data['last_failed_at'] = time();
-
-    if ($data['attempts'] < $maxAttempts) {
-        $redis->rpush("mqtt:forward:$idLicenca", json_encode($data));
-        return;
+    foreach ($batch as $item) {
+        $item['attempts'] = ($item['attempts'] ?? 0) + 1;
+        if ($item['attempts'] < $maxAttempts) {
+            $redis->rpush($queueKey, json_encode($item));
+        } else {
+            $license = $item['license'] ?? 'unknown';
+            $redis->rpush("mqtt:forward_failed:$license", json_encode($item));
+        }
     }
-
-    $redis->rpush("mqtt:forward_failed:$idLicenca", json_encode($data));
 }
 
 Logger::info(
     'Forward consumer started'
         . ($licenseFilter ? " for license $licenseFilter" : ' for all licenses')
-        . (!$licenseFilter && $excludeLicenses ? ' excluding licenses ' . implode(',', $excludeLicenses) : '')
+        . ' with batching (max ' . $batchSize . ' per request)'
         . ($dryRun ? ' in dry-run mode' : '')
-        . " (connect_timeout_ms=$connectTimeoutMs timeout_ms=$timeoutMs)"
 );
+
+if (getFlag($argv, '--no-batch') || filter_var($_ENV['FORWARD_DISABLE_BATCH'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+    Logger::warn('Single-message forwarding is disabled in this environment; forcing batch mode.');
+}
 
 while (true) {
     $processed = 0;
 
     foreach (getQueueKeys($redis, $licenseFilter, $excludeLicenses) as $queueKey) {
-        $item = $redis->lpop($queueKey);
-        if (!$item) {
+        $batch = [];
+        for ($i = 0; $i < $batchSize; $i++) {
+            $item = $redis->lpop($queueKey);
+            if ($item === null) break;
+            $batch[] = json_decode($item, true);
+        }
+
+        if (empty($batch)) continue;
+
+        $license = $batch[0]['license'] ?? '';
+        $targetUrl = getTargetUrlFromCrm($license, $redis, $cacheTtl);
+
+        if (!$targetUrl) {
+            foreach ($batch as $item) {
+                $item['attempts'] = ($item['attempts'] ?? 0) + 1;
+                $redis->rpush("mqtt:forward_failed:$license", json_encode($item));
+            }
             continue;
         }
 
-        processQueueItem($redis, $item, $cacheTtl, $connectTimeoutMs, $timeoutMs, $maxAttempts, $dryRun);
-        $processed++;
+        if ($dryRun) {
+            Logger::info("[$license] DRY RUN -> $targetUrl (batch of " . count($batch) . ")");
+            continue;
+        }
+
+        $start = nowMs();
+        $result = forwardBatch($targetUrl, $batch, $connectTimeoutMs, $timeoutMs);
+        $elapsed = nowMs() - $start;
+
+        Logger::info(
+            "[$license] batch=" . count($batch)
+            . " HTTP {$result['http_code']} {$elapsed}ms"
+            . ($result['ok'] ? '' : ' FAILED')
+        );
+
+        if (!$result['ok']) {
+            handleBatchResult($redis, $result, $batch, $queueKey, $maxAttempts);
+        }
+
+        $processed += count($batch);
     }
 
     if ($processed === 0) {
