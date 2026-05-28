@@ -16,6 +16,9 @@ $username = ($_ENV['MQTT_USERNAME'] ?? '') !== '' ? $_ENV['MQTT_USERNAME'] : nul
 $password = ($_ENV['MQTT_PASSWORD'] ?? '') !== '' ? $_ENV['MQTT_PASSWORD'] : null;
 $topic    = $_ENV['MQTT_TOPIC'] ?? '';
 $clientId = $_ENV['MQTT_CLIENT_ID'] ?? 'php-radar-router';
+$allowedLicenses = isset($_ENV['ALLOWED_LICENSES']) && $_ENV['ALLOWED_LICENSES'] !== ''
+    ? explode(',', $_ENV['ALLOWED_LICENSES'])
+    : null;
 
 $redis = new RedisClient($_ENV['REDIS_URL'] ?? 'tcp://127.0.0.1:6379');
 
@@ -52,7 +55,7 @@ function publishToRedis(RedisClient $redis, string $idLicenca, string $topic, st
     Logger::info("Published to Redis channel: $channel");
 }
 
-function handleMqttMessage(string $topic, string $message, RedisClient $redis): void
+function handleMqttMessage(string $topic, string $message, RedisClient $redis, ?array $allowedLicenses): void
 {
     $parts = explode('/', $topic);
     if (count($parts) < 3) {
@@ -63,6 +66,10 @@ function handleMqttMessage(string $topic, string $message, RedisClient $redis): 
     $idLicenca = $parts[1] ?? null;
     if (!$idLicenca) {
         Logger::warn("No id_licenca in topic: $topic");
+        return;
+    }
+
+    if ($allowedLicenses !== null && !in_array($idLicenca, $allowedLicenses, true)) {
         return;
     }
 
@@ -89,8 +96,8 @@ while (true) {
         $mqtt = createMqttClient($server, (int)$port, $clientId);
         $mqtt->connect($settings, true);
         Logger::info("MQTT connected");
-        $mqtt->subscribe($topic, function ($topic, $message) use ($redis) {
-            handleMqttMessage($topic, $message, $redis);
+        $mqtt->subscribe($topic, function ($topic, $message) use ($redis, $allowedLicenses) {
+            handleMqttMessage($topic, $message, $redis, $allowedLicenses);
         }, 1);
         $reconnectDelay = 2;
         $mqtt->loop(true);
