@@ -6,8 +6,8 @@ require __DIR__ . '/bootstrap.php';
 
 use PhpMqtt\Client\MqttClient;
 use PhpMqtt\Client\ConnectionSettings;
-use PhpMqtt\Client\Exceptions\DataTransferException;
 use App\Logger;
+use App\QueueItem;
 use Predis\Client as RedisClient;
 
 $server   = $_ENV['MQTT_SERVER'] ?? '127.0.0.1';
@@ -42,19 +42,6 @@ function pushToForwardQueue(RedisClient $redis, string $idLicenca, string $topic
     ]));
 }
 
-function publishToRedis(RedisClient $redis, string $idLicenca, string $topic, string $message): void
-{
-    $channel = "radar:ingest:$idLicenca";
-    $payload = json_encode([
-        'topic'    => $topic,
-        'message' => $message,
-        'license' => $idLicenca,
-        'ts'      => time()
-    ]);
-    $redis->publish($channel, $payload);
-    Logger::info("Published to Redis channel: $channel");
-}
-
 function handleMqttMessage(string $topic, string $message, RedisClient $redis, ?array $allowedLicenses): void
 {
     $parts = explode('/', $topic);
@@ -69,19 +56,24 @@ function handleMqttMessage(string $topic, string $message, RedisClient $redis, ?
         return;
     }
 
+    // A licenca entra em cru no nome da chave do Redis. Um segmento com dois
+    // pontos — radar/1001:processing/x — produz a lista de transito da licenca
+    // 1001, e o que la for escrito acaba entregue a esse cliente.
+    if (!QueueItem::isValidLicense((string)$idLicenca)) {
+        Logger::warn("Rejected topic with invalid license segment: $topic");
+        return;
+    }
+
     if ($allowedLicenses !== null && !in_array($idLicenca, $allowedLicenses, true)) {
         return;
     }
 
     pushToForwardQueue($redis, $idLicenca, $topic, $message);
-    publishToRedis($redis, $idLicenca, $topic, $message);
 
     Logger::info("Queued forward for license $idLicenca - topic: $topic");
 }
 
 
-
-Logger::info("MQTT Worker started");
 
 function createMqttClient(string $server, int $port, string $clientId): MqttClient
 {
@@ -101,12 +93,14 @@ while (true) {
         }, 1);
         $reconnectDelay = 2;
         $mqtt->loop(true);
-    } catch (DataTransferException $e) {
-        Logger::error("MQTT connection lost: {$e->getMessage()}, reconnecting in {$reconnectDelay}s...");
+    } catch (\Exception $e) {
+        // Uma ligacao perdida chega como DataTransferException, mas uma ligacao
+        // recusada — o caso dominante enquanto o broker esta em baixo — chega
+        // como excecao generica. Antes so a primeira recuava, e a segunda
+        // repetia de cinco em cinco segundos indefinidamente: o recuo existia
+        // e nunca disparava no caso para que foi feito.
+        Logger::error("MQTT error: {$e->getMessage()}, reconnecting in {$reconnectDelay}s...");
         usleep($reconnectDelay * 1000000);
         $reconnectDelay = min($reconnectDelay * 2, 60);
-    } catch (\Exception $e) {
-        Logger::error("Unexpected error: {$e->getMessage()}");
-        sleep(5);
     }
 }
