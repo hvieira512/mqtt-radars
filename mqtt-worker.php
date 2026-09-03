@@ -56,9 +56,7 @@ function handleMqttMessage(string $topic, string $message, RedisClient $redis, ?
         return;
     }
 
-    // A licenca entra em cru no nome da chave do Redis. Um segmento com dois
-    // pontos — radar/1001:processing/x — produz a lista de transito da licenca
-    // 1001, e o que la for escrito acaba entregue a esse cliente.
+    // A licenca entra no nome da chave: dois pontos colidiriam com as chaves internas.
     if (!QueueItem::isValidLicense((string)$idLicenca)) {
         Logger::warn("Rejected topic with invalid license segment: $topic");
         return;
@@ -94,11 +92,7 @@ while (true) {
         $reconnectDelay = 2;
         $mqtt->loop(true);
     } catch (\Exception $e) {
-        // Uma ligacao perdida chega como DataTransferException, mas uma ligacao
-        // recusada — o caso dominante enquanto o broker esta em baixo — chega
-        // como excecao generica. Antes so a primeira recuava, e a segunda
-        // repetia de cinco em cinco segundos indefinidamente: o recuo existia
-        // e nunca disparava no caso para que foi feito.
+        // Um so ramo: ligacao perdida e ligacao recusada exigem ambas recuo.
         Logger::error("MQTT error: {$e->getMessage()}, reconnecting in {$reconnectDelay}s...");
         usleep($reconnectDelay * 1000000);
         $reconnectDelay = min($reconnectDelay * 2, 60);

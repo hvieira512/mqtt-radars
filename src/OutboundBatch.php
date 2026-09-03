@@ -3,10 +3,10 @@
 namespace App;
 
 /**
- * Constroi o corpo que segue para a plataforma a partir das mensagens da fila.
+ * Constroi o corpo que segue para a plataforma.
  *
- * A ordem do lote e a ordem enviada, e os indices do campo results que a
- * plataforma devolve numa recusa referem-se a essas posicoes.
+ * A ordem e preservada: os indices que a plataforma devolve numa recusa
+ * referem-se a estas posicoes.
  */
 class OutboundBatch
 {
@@ -29,10 +29,7 @@ class OutboundBatch
                 'payload' => $envelope['payload'] ?? $envelope,
             ];
 
-            // O radar gera um traceId por leitura. Sem ele a chegar a
-            // plataforma, uma entrega repetida — depois de uma resposta
-            // perdida, ou de uma recuperacao da lista de processamento — nao e
-            // distinguivel de uma leitura nova, nem por nos nem por ela.
+            // Unico identificador que distingue uma entrega repetida de uma leitura nova.
             $traceId = $envelope['header']['traceId'] ?? null;
             if (is_string($traceId) && $traceId !== '') {
                 $message['traceId'] = $traceId;

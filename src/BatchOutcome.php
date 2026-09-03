@@ -5,13 +5,8 @@ namespace App;
 /**
  * Decide o destino de um lote a partir da resposta da plataforma.
  *
- * Sem dependencias e sem efeitos: e a peca que os testes exercitam sem
- * precisar de rede nem de Redis.
- *
- * O codigo HTTP nao chega para decidir. A plataforma reverte o lote e responde
- * com status "error" no corpo, mas o http_response_code() nao se aplica quando
- * ja saiu output antes — e um lote revertido chega ca como 200. Confiar so no
- * codigo faz descartar mensagens que nunca foram gravadas.
+ * Le o corpo e nao so o codigo: um lote revertido chega como 200 sempre que a
+ * plataforma emita output antes de responder.
  */
 class BatchOutcome
 {
@@ -57,9 +52,7 @@ class BatchOutcome
                 return self::outcome(self::DELIVERED, [], '');
             }
 
-            // 2xx sem confirmacao no corpo — pagina de erro de um proxy, por
-            // exemplo. Nao se assume entrega: repetir arrisca duplicados, dar
-            // por entregue perde as mensagens sem deixar rasto.
+            // Sem confirmacao no corpo nao se assume entrega: duplicar e preferivel a perder.
             return self::outcome(self::RETRY, [], 'resposta 2xx sem confirmacao interpretavel');
         }
 
@@ -70,10 +63,7 @@ class BatchOutcome
         return self::outcome(self::REJECTED, self::rejectedIndexes($decoded), $message !== '' ? $message : "HTTP $httpCode");
     }
 
-    /**
-     * O corpo pode vir precedido de avisos do PHP da plataforma, que empurram
-     * o JSON para o fim da resposta.
-     */
+    /** Avisos do PHP da plataforma podem preceder o JSON, por isso procura-se o inicio do objeto. */
     private static function decodeBody(string $body): array
     {
         if (trim($body) === '') {
@@ -94,10 +84,7 @@ class BatchOutcome
     }
 
     /**
-     * Extrai que mensagens do lote foram recusadas e porque.
-     *
-     * O campo results chega como objeto quando so algumas posicoes falharam
-     * (chaves nao sequenciais) e como lista quando falharam todas.
+     * O campo results chega como objeto se so algumas posicoes falharam, e como lista se falharam todas.
      *
      * @return array<int, string> indice no lote => motivo
      */

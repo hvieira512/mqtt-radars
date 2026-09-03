@@ -101,7 +101,6 @@ O ficheiro `.env` é lido a partir do diretório de trabalho pelo `bootstrap.php
 | `FORWARD_LICENSE` | vazio | Equivalente a `--license` |
 | `FORWARD_EXCLUDE_LICENSES` | vazio | Equivalente a `--exclude` |
 | `FORWARD_DRY_RUN` | `false` | Regista o destino sem enviar; as mensagens voltam à fila |
-| `FORWARD_DISABLE_BATCH` | — | Reconhecida e ignorada |
 | `FORWARD_RETRY_BASE_MS` | `1000` | Espera antes da primeira retentativa |
 | `FORWARD_RETRY_MAX_MS` | `30000` | Teto da espera, que dobra a cada tentativa |
 | `FORWARD_FAILED_CAP` | `5000` | Últimas N entradas guardadas nas filas de falhas e de inválidas; `0` desliga o teto |

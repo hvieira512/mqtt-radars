@@ -26,9 +26,9 @@ O consumidor retira até `FORWARD_BATCH_SIZE` mensagens de uma fila e envia-as
 num único pedido HTTP. Quando a fila tem menos do que isso, o lote é do tamanho
 que houver.
 
-**O modo de mensagem única não está disponível.** As opções `--no-batch` e
-`FORWARD_DISABLE_BATCH` são reconhecidas, registam um aviso, e são ignoradas: o
-envio em lote é forçado.
+**O lote não é opcional.** A plataforma só aceita este formato: um pedido sem
+`batch: true` é recusado com `422 Batch mode required`, antes de qualquer
+validação de conteúdo.
 
 O lote é indivisível para a plataforma do cliente, que o processa como uma
 transação única. Se uma mensagem do lote for recusada, **todo o lote é revertido

@@ -20,7 +20,6 @@ $licenseFilter = getArgValue($argv, '--license') ?: ($_ENV['FORWARD_LICENSE'] ??
 $excludeLicenses = parseLicenseList(getArgValue($argv, '--exclude') ?: ($_ENV['FORWARD_EXCLUDE_LICENSES'] ?? ''));
 $dryRun = getFlag($argv, '--dry-run') || filter_var($_ENV['FORWARD_DRY_RUN'] ?? false, FILTER_VALIDATE_BOOLEAN);
 $batchSize = (int)($_ENV['FORWARD_BATCH_SIZE'] ?? 100);
-$batchEnabled = true;
 // Teto da fila de falhas: mantem as ultimas N como amostra. 0 desliga o teto.
 $failedCap = (int)($_ENV['FORWARD_FAILED_CAP'] ?? 5000);
 // Espera entre tentativas do mesmo lote, a dobrar a cada uma.
@@ -110,7 +109,6 @@ function forwardBatch(
         'messages' => OutboundBatch::build($batch),
     ]);
 
-    $startedAtMs = nowMs();
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
@@ -119,8 +117,7 @@ function forwardBatch(
         CURLOPT_CONNECTTIMEOUT_MS => $connectTimeoutMs,
         CURLOPT_TIMEOUT_MS => $timeoutMs,
         CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-        // O que segue e telemetria de saude de pessoas identificadas: a
-        // verificacao so cede onde o destino comprovadamente a nao suporte.
+        // Telemetria de saude: a verificacao so cede onde o destino a nao suporte.
         CURLOPT_SSL_VERIFYPEER => !$tlsInsecure,
         CURLOPT_SSL_VERIFYHOST => $tlsInsecure ? 0 : 2,
     ]);
@@ -129,30 +126,15 @@ function forwardBatch(
     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $error = curl_error($ch);
 
-    $result = [
-        'ok' => $httpCode >= 200 && $httpCode < 300,
+    // Quem decide o destino e o BatchOutcome, a partir destes tres campos.
+    return [
         'http_code' => $httpCode,
-        'duration_ms' => nowMs() - $startedAtMs,
         'error' => $error,
         'response' => is_string($response) ? $response : '',
     ];
-
-    if ($result['ok'] && $response) {
-        $decoded = json_decode($response, true);
-        $result['batch_results'] = $decoded['results'] ?? $decoded['batch_result'] ?? [];
-    }
-
-    return $result;
 }
 
-/**
- * Lista onde ficam as mensagens em transito.
- *
- * Entre sair da fila e a plataforma confirmar, uma mensagem tem de existir em
- * algum sitio: com LPOP so existia na memoria do processo, e um reinicio
- * durante o pedido — que pode demorar ate FORWARD_TIMEOUT_MS — perdia o lote
- * inteiro sem deixar rasto.
- */
+/** Onde a mensagem existe entre sair da fila e a plataforma confirmar. */
 function processingKey(string $queueKey): string
 {
     return "$queueKey:processing";
@@ -161,9 +143,8 @@ function processingKey(string $queueKey): string
 /**
  * Devolve a fila o que ficou em transito quando o processo morreu.
  *
- * Percorre a lista de tras para a frente para as mensagens reentrarem pela
- * cabeca na ordem original. Assume um consumidor por licenca: com dois, um
- * deles reclamaria o lote que o outro tem em voo.
+ * De tras para a frente, para reentrarem pela cabeca na ordem original. Assume
+ * um consumidor por licenca.
  */
 function recoverProcessing(RedisClient $redis, string $queueKey): int
 {
@@ -192,21 +173,14 @@ function getQueueKeys(RedisClient $redis, ?string $licenseFilter, array $exclude
         $licenses = array_values(array_diff($licenses, $excludeLicenses));
     }
 
-    // O conjunto so cresce e ja acumulou entradas escritas a partir de topicos
-    // malformados. Uma licenca invalida daria uma chave de fila que colide com
-    // as chaves internas — a lista de transito, por exemplo.
+    // O conjunto so cresce; uma licenca invalida daria uma chave que colide com as internas.
     $licenses = array_values(array_filter($licenses, fn($license) => QueueItem::isValidLicense((string)$license)));
 
     sort($licenses);
     return array_map(fn($license) => "mqtt:forward:$license", $licenses);
 }
 
-/**
- * Escreve uma mensagem na fila de falhas, com o que a plataforma respondeu.
- *
- * Sem estes campos nao ha como saber, mais tarde, se a entrega falhou por 422,
- * por 500 ou por a ligacao ter sido recusada.
- */
+/** Escreve na fila de falhas com o que a plataforma respondeu, para a falha ser diagnosticavel. */
 function recordFailure(RedisClient $redis, array $item, array $result, string $reason, int $failedCap): void
 {
     $license = (string)($item['license'] ?? 'unknown');
@@ -220,18 +194,13 @@ function recordFailure(RedisClient $redis, array $item, array $result, string $r
     $key = "mqtt:forward_failed:$license";
     $redis->rpush($key, json_encode($item));
 
-    // Ninguem consome esta fila. Sem teto, chegou a ocupar 925 MB num Redis de 4 GB.
+    // Ninguem consome esta fila, por isso sem teto cresce sem fim.
     if ($failedCap > 0) {
         $redis->ltrim($key, -$failedCap, -1);
     }
 }
 
-/**
- * Contadores por resultado e codigo HTTP.
- *
- * Responde a "o que esta a falhar" com um HGETALL, em vez de obrigar a
- * percorrer listas de centenas de milhares de elementos.
- */
+/** Contadores por resultado e codigo, para responder com um HGETALL em vez de percorrer listas. */
 function countOutcome(RedisClient $redis, string $license, string $outcome, int $httpCode, int $count): void
 {
     if ($count > 0) {
@@ -257,13 +226,10 @@ function handleBatchOutcome(
     $httpCode = (int)($result['http_code'] ?? 0);
 
     if ($decision['outcome'] === BatchOutcome::REJECTED) {
-        // So contam os indices que existem mesmo no lote. Se a plataforma
-        // nomear posicoes fora dele, nada seria removido, o lote voltaria
-        // inteiro a fila e o ciclo repetia-se sem fim e sem progresso.
+        // Indices fora do lote nao removem nada, e o lote voltaria a fila sem fim.
         $rejected = array_intersect_key($decision['rejected'], $batch);
 
-        // Sem indices utilizaveis a recusa nao se consegue localizar, e o lote
-        // inteiro fica sem destino.
+        // Sem indices utilizaveis a recusa nao se localiza, e o lote inteiro fica sem destino.
         if (empty($rejected)) {
             if (!empty($decision['rejected'])) {
                 Logger::warn(
@@ -284,9 +250,7 @@ function handleBatchOutcome(
             return false;
         }
 
-        // A plataforma reverte o lote inteiro por causa das mensagens que
-        // nomeia. Retirando-as, as restantes voltam a fila e seguem no proximo
-        // ciclo em vez de morrerem com elas.
+        // Retiradas as nomeadas, as restantes voltam a fila em vez de morrerem com elas.
         $survivors = 0;
         foreach ($batch as $index => $item) {
             if (isset($rejected[$index])) {
@@ -338,10 +302,6 @@ Logger::info(
         . ($dryRun ? ' in dry-run mode' : '')
 );
 
-if (getFlag($argv, '--no-batch') || filter_var($_ENV['FORWARD_DISABLE_BATCH'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
-    Logger::warn('Single-message forwarding is disabled in this environment; forcing batch mode.');
-}
-
 // O que ficou em transito numa paragem anterior volta a fila antes de comecar.
 foreach (getQueueKeys($redis, $licenseFilter, $excludeLicenses) as $queueKey) {
     recoverProcessing($redis, $queueKey);
@@ -352,24 +312,19 @@ while (true) {
 
     foreach (getQueueKeys($redis, $licenseFilter, $excludeLicenses) as $queueKey) {
         $processingKey = processingKey($queueKey);
-        // A licenca sai da chave da fila, nao do primeiro elemento: um elemento
-        // corrompido a abrir o lote deixava a licenca vazia, e as falhas iam
-        // parar a uma chave sem licenca nenhuma.
+        // Da chave, nao do primeiro elemento: corrompido, deixaria a licenca vazia.
         $license = QueueItem::licenseFromQueueKey($queueKey);
 
         $batch = [];
         $unreadable = 0;
         for ($i = 0; $i < $batchSize; $i++) {
-            // LMOVE em vez de LPOP: a mensagem sai da fila e entra na lista de
-            // transito na mesma operacao, e nunca fica so em memoria.
+            // Sai da fila e entra no transito na mesma operacao, nunca so em memoria.
             $raw = $redis->lmove($queueKey, $processingKey, 'LEFT', 'RIGHT');
             if ($raw === null) break;
 
             $item = QueueItem::parse($raw, $license);
             if ($item === null) {
-                // Nao e uma mensagem. Guarda-se em separado para nao voltar a
-                // entrar no lote: com reinicio automatico e recuperacao do
-                // transito, um elemento ilegivel repetia-se sem fim.
+                // Guardado a parte para nao voltar a entrar no lote a cada arranque.
                 $invalidKey = "mqtt:forward_invalid:$license";
                 $redis->rpush($invalidKey, $raw);
                 if ($failedCap > 0) {
@@ -439,16 +394,11 @@ while (true) {
             $failedCap
         );
 
-        // O lote ja esta na fila outra vez ou na de falhas: sai do transito.
-        // Uma paragem entre as duas coisas repete a entrega em vez de a perder,
-        // e e para isso que o traceId segue com cada mensagem.
+        // Destino decidido: sai do transito. Uma paragem aqui repete em vez de perder.
         $redis->del($processingKey);
 
         if ($transient) {
-            // Sem espera, uma hora de indisponibilidade da plataforma produz
-            // dezenas de milhares de entradas mortas em vez de algumas centenas.
-            // O lote mistura mensagens novas com reenfileiradas: a espera segue
-            // a que ja tentou mais vezes, nao a primeira da lista.
+            // O lote mistura novas com reenfileiradas: a espera segue a que mais tentou.
             $attempt = 1;
             foreach ($batch as $item) {
                 $attempt = max($attempt, (int)($item['attempts'] ?? 0) + 1);
