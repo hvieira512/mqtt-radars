@@ -36,10 +36,12 @@ introduzida depois do 8.0 passa localmente e rebenta na instalação.
 segura enquanto estão em baixo. O subscritor perde as mensagens publicadas na
 janela, por isso vai em último e a uma hora conveniente.
 
-> **`composer install` não faz parte da atualização.** O `vendor/` do servidor
-> tem versões mais recentes do que as fixadas no `composer.lock`, e correr o
-> comando faria *downgrade* do cliente MQTT em produção. Só depois de o lock ser
-> alinhado com o que está instalado.
+O `composer install` não consta acima porque as dependências raramente mudam.
+Quando mudarem, correr **antes** dos reinícios, e confirmar com `--dry-run` que
+o que ele vai fazer é o que se espera: o `composer.lock` é a fonte de verdade, e
+uma divergência entre ele e o `vendor/` do servidor faz o comando alterar
+versões sem aviso. Foi o que aconteceu até setembro de 2026, quando o lock
+fixava um cliente MQTT mais antigo do que o instalado.
 
 ## 2. Unidades systemd
 
