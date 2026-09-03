@@ -24,7 +24,8 @@ git pull --ff-only
 for t in tests/*.php; do php "$t" || break; done
 
 systemctl restart mqtt-forward-1001    # canário: observar antes de seguir
-systemctl restart mqtt-forward-2004 mqtt-forward-2103
+systemctl restart mqtt-forward-2004 mqtt-forward-2051 mqtt-forward-2103
+systemctl restart mqtt-forward-generic@1
 systemctl restart mqtt-worker          # o único com custo
 ```
 
@@ -85,14 +86,29 @@ RestartSec=2
 WantedBy=multi-user.target
 ```
 
-Existem unidades para as licenças 1001, 2004 e 2103, e **não corre nenhum
-consumidor genérico** — as três instâncias arrancam todas com `--license=N`. O
-modo genérico existe no código e nada o usa.
+Existem unidades dedicadas para as licenças 1001, 2004, 2051 e 2103, todas com
+`--license=N`. Servem para isolar umas das outras: um consumidor único atrasa
+todas as licenças quando uma plataforma responde devagar.
 
-As unidades são fixas e não templadas. Acrescentar uma licença implica criar um
-ficheiro novo, e enquanto isso não for feito as mensagens dessa licença
-acumulam-se numa fila que ninguém lê, sem erro e sem nada que o assinale. Ver o
-[capítulo 06](06-falhas-conhecidas.md).
+A estas junta-se um **consumidor de recolha**, que serve todas as licenças que
+não tenham unidade própria:
+
+```ini
+# /etc/systemd/system/mqtt-forward-generic@.service
+ExecStart=/usr/bin/php forward-consumer.php --exclude=1001,2004,2051,2103
+```
+
+Com ele em execução nenhuma licença fica sem consumidor. Uma licença que comece
+a publicar é servida no ciclo seguinte, sem intervenção e sem fila por ler. É
+esta unidade que dispensa a filtragem no subscritor — ver `ALLOWED_LICENSES` na
+secção seguinte e o ponto 8 do [capítulo 06](06-falhas-conhecidas.md).
+
+**A lista `--exclude` acompanha as unidades dedicadas.** Uma licença com unidade
+própria que não conste dessa lista fica com dois consumidores na mesma fila, e os
+dois partilham a lista de trânsito: a recuperação de arranque de um devolve à
+fila o lote que o outro tem em voo, e o `DEL` do trânsito de um apaga os
+elementos do outro. O primeiro duplica entregas, o segundo perde-as, e a
+plataforma não desduplica.
 
 ## 3. Configuração
 
@@ -106,7 +122,7 @@ O ficheiro `.env` é lido a partir do diretório de trabalho pelo `bootstrap.php
 | `MQTT_PASSWORD` | vazio | Vazio é tratado como ausente |
 | `MQTT_TOPIC` | vazio | Em produção, `radar/+/+` |
 | `MQTT_CLIENT_ID` | `php-radar-router` | Estável e sem PID; ver [capítulo 01](01-arquitectura.md) |
-| `ALLOWED_LICENSES` | vazio | Lista separada por vírgulas; vazio aceita todas |
+| `ALLOWED_LICENSES` | vazio | Lista separada por vírgulas; vazio aceita todas. **Em produção fica vazia**: filtrar aqui descarta antes da fila e sem deixar rasto — ver o ponto 8 do [capítulo 06](06-falhas-conhecidas.md) |
 | `REDIS_URL` | `tcp://127.0.0.1:6379` | |
 | `CRM_URL` | `https://crm.hitcare.net/api/get.url.php` | |
 | `CRM_CACHE_TTL` | `3600` | Segundos |
@@ -155,6 +171,8 @@ journalctl -u mqtt-worker -f
 
 systemctl status mqtt-forward-2103
 journalctl -u mqtt-forward-2103 -f
+
+systemctl status mqtt-forward-generic@1              # consumidor de recolha
 ```
 
 Execução manual, útil para diagnóstico:
@@ -162,7 +180,7 @@ Execução manual, útil para diagnóstico:
 ```bash
 cd /root/mqtt-radars
 php forward-consumer.php --license=2103 --dry-run    # resolve e regista, não envia
-php forward-consumer.php --exclude=1001,2004         # todas menos estas
+php forward-consumer.php --exclude=1001,2004,2051,2103 --dry-run   # o que o de recolha serve
 ```
 
 ## 6. Verificações
@@ -171,7 +189,7 @@ php forward-consumer.php --exclude=1001,2004         # todas menos estas
 valor que cresce indica uma plataforma a recusar ou a responder devagar.
 
 ```bash
-for l in 1001 2004 2103; do
+for l in $(redis-cli smembers mqtt:forward:licenses | sort); do
   printf "%s: %s pendentes, %s em trânsito, %s falhadas, %s inválidas\n" "$l" \
     "$(redis-cli llen mqtt:forward:$l)" \
     "$(redis-cli llen mqtt:forward:$l:processing)" \
@@ -186,6 +204,18 @@ entregar e volta à fila no próximo arranque.
 
 A coluna **inválidas** deve estar a zero. Qualquer valor significa que alguém
 escreveu na fila algo que não é uma mensagem — ver o [capítulo 03](03-redis.md).
+
+**Que licenças estão a ser servidas.** O conjunto cresce sozinho quando uma
+licença começa a publicar, e é por aqui que se dá por uma que apareça:
+
+```bash
+redis-cli smembers mqtt:forward:licenses
+```
+
+Uma entrada sem unidade dedicada é servida pelo consumidor de recolha, e nesse
+estado a entrega está garantida. O que decide se merece unidade própria é o
+volume: uma licença pesada atrasa as restantes enquanto partilhar o processo de
+recolha com elas.
 
 **O que está a falhar, e com que código.** Os contadores respondem sem percorrer
 listas:

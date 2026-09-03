@@ -7,12 +7,12 @@ ordem de risco.
 |---|---|
 | 1. Verificação de certificado desligada | **corrigido** — ligada por omissão, exceção em `FORWARD_TLS_INSECURE` |
 | 2. Motivo da falha descartado | **corrigido** — `last_http_code`, `last_error`, `last_response`, `last_reason` |
-| 3. Fila de falhas sem leitura, teto ou expiração | **teto corrigido** — `FORWARD_FAILED_CAP` e contadores; continua sem consumidor |
+| 3. Fila de falhas sem leitura, teto ou expiração | **teto corrigido** — `FORWARD_FAILED_CAP` e contadores; continua sem consumidor, e o acumulado histórico foi apagado a 4 de setembro |
 | 4. Não existe alarme | **fora de âmbito** — o projeto é a ponte para as bases das plataformas, e alarmística não lhe pertence |
 | 5. Todas as falhas tratadas como iguais | **corrigido** — `App\BatchOutcome` classifica e a recusa é localizada |
 | 6. Não há espera entre tentativas | **corrigido** — espera crescente entre `FORWARD_RETRY_BASE_MS` e `FORWARD_RETRY_MAX_MS` |
 | 7. Canal `radar:ingest:*` sem subscritores | **corrigido** — chamada removida, e com ela oito dependências mortas do `composer.json` |
-| 8. Licença que comece a produzir dados sem ter consumidor | **adiado por decisão** — a unidade templada resolve, mas não vale um lançamento |
+| 8. Licença que comece a produzir dados sem ter consumidor | **corrigido** — consumidor de recolha em execução e `ALLOWED_LICENSES` removida. Ocorreu na licença 2051, de 26 de maio a 4 de setembro |
 | 9. Mensagens só em memória entre a fila e a entrega | **corrigido** — `LMOVE` para lista de trânsito, com recuperação no arranque |
 | 10. Sem identificador que permita desduplicar | **habilitado** — o `traceId` acompanha cada mensagem; desduplicar é decisão da plataforma |
 | 11. Elemento ilegível na fila derruba o consumidor em ciclo | **corrigido** — `App\QueueItem` valida à leitura, e o que não serve vai para `mqtt:forward_invalid:{licenca}` |
@@ -20,12 +20,16 @@ ordem de risco.
 | 13. Licença do tópico entrava em cru na chave do Redis | **corrigido** — validada como inteiro positivo no `mqtt-worker` e em `getQueueKeys` |
 | 14. Espera crescente do subscritor no ramo errado | **corrigido** — aplica-se agora a ligação perdida e a ligação recusada |
 
-Doze corrigidas. Duas fechadas por decisão: a alarmística não pertence a este
-projeto, e a unidade templada não corrige defeito nenhum.
+Treze corrigidas. Uma fechada por decisão: a alarmística não pertence a este
+projeto.
 
 As correções vivem no `forward-consumer.php`, no `mqtt-worker.php` e em
 `src/BatchOutcome.php`, `src/OutboundBatch.php` e `src/QueueItem.php`, com testes
 em `tests/`. Nada disto exigiu alterações ao `ingest.php` das plataformas.
+
+A exceção é o ponto 8, corrigido a 4 de setembro sem escrever código: a falha
+estava na configuração e na topologia dos serviços, e resolveu-se removendo uma
+variável de ambiente e ligando uma unidade que já estava instalada.
 
 ## 1. A verificação de certificado está desligada
 
@@ -188,40 +192,75 @@ apagada que deixou resto.
 
 ## 8. Uma licença que comece a produzir dados sem ter consumidor
 
-As unidades systemd são fixas, uma por licença. Uma licença sem unidade
-correspondente só seria servida por um consumidor genérico — e **não existe
-nenhum em execução**. As três unidades em produção correm todas com
-`--license=N`:
+**Corrigido a 4 de setembro de 2026, depois de ter ocorrido.** Este ponto estava
+descrito como risco por realizar. Verificou-se que já se tinha concretizado, na
+licença 2051, e que o mecanismo real era pior do que o previsto.
 
+### O que se passou
+
+O consumidor da licença 2051 foi parado a 26 de maio de 2026. Dois dias depois,
+o commit `e23e8a6` introduziu a variável `ALLOWED_LICENSES` no `mqtt-worker`, e
+a licença ficou de fora da lista. De 26 de maio a 4 de setembro os três radares
+dessa instalação continuaram a publicar, a um ritmo medido de 275 mensagens por
+minuto, e nada disso chegou à plataforma do cliente. São da ordem dos 40 milhões
+de mensagens.
+
+### Porque foi pior do que o previsto
+
+A descrição original supunha que as mensagens de uma licença sem consumidor se
+acumulariam numa fila por ler. Uma fila é observável: aparece no `LLEN`, ocupa
+memória, e o ciclo de verificação do [capítulo 05](05-operacao.md) mostra-a.
+
+Não foi o que aconteceu. O teste da `ALLOWED_LICENSES` está no `mqtt-worker`
+**antes** do `RPUSH`, e o ramo que recusa é um `return` sem registo:
+
+```php
+if ($allowedLicenses !== null && !in_array($idLicenca, $allowedLicenses, true)) {
+    return;
+}
 ```
-mqtt-forward-1001.service   forward-consumer.php --license=1001
-mqtt-forward-2004.service   forward-consumer.php --license=2004
-mqtt-forward-2103.service   forward-consumer.php --license=2103
-```
 
-O modo genérico existe no código e nada o corre.
+As mensagens não chegaram a entrar em fila nenhuma. Não havia lista a crescer,
+contador a subir, nem linha no registo — e, por não haver fila, também não havia
+nada para recuperar depois. As restantes três recusas da mesma função registam
+todas um aviso; esta era a única silenciosa.
 
-Uma licença que exista no CRM e não tenha radares a publicar é indiferente a
-este projeto: não gera fila, e não há nada para entregar.
+### Como foi detetado
 
-O que importa é o momento em que uma licença **começa** a publicar. O subscritor
-enfileira-a e acrescenta-a a `mqtt:forward:licenses` sem que nada mais seja
-preciso — e, se não existir unidade para ela, as mensagens acumulam-se numa fila
-que ninguém lê. Sem erro, sem falha registada, e sem nada que o assinale.
+Por comparação entre duas fontes independentes: as licenças que publicam no
+broker, obtidas com uma subscrição de dois minutos a `radar/#`, e as unidades
+systemd em execução. A 2051 aparecia na primeira e não na segunda. Nenhum registo
+do próprio projeto continha indício da falha.
 
-**Correção conhecida, adiada por decisão.** Uma unidade templada,
-`mqtt-forward@.service`, com o identificador da licença como parâmetro da
-instância: três ficheiros passam a um, e acrescentar uma licença passa a ser
-`systemctl enable --now mqtt-forward@2051`. É o padrão que o
-`havicare-hub-client` já usa.
+### Correção
 
-Não foi feita porque não corrige defeito nenhum e o lançamento que a
-acompanharia já muda a semântica de entrega, liga a verificação de certificado e
-limita as filas de falhas. Juntar uma reorganização das unidades a essas
-alterações dá dois suspeitos em vez de um se algo correr mal.
+Duas alterações de operação, sem código:
 
-Com três licenças a mudarem raramente, o custo que evita não está a doer. Faz
-sentido quando aparecer uma quarta, como alteração isolada.
+1. **`ALLOWED_LICENSES` esvaziada.** Com a lista vazia o subscritor aceita todas
+   as licenças, e deixa de existir descarte silencioso.
+2. **Consumidor de recolha em execução.** A unidade `mqtt-forward-generic@1`
+   estava instalada e ativada, mas parada desde sempre. Serve todas as licenças
+   fora do seu `--exclude`, pelo que uma licença nova passa a ser entregue sem
+   intervenção.
+
+As duas em conjunto fecham os dois lados: sem a primeira, uma licença nova
+desaparecia; sem a segunda, acumularia fila até esgotar o Redis, que está em
+`noeviction`.
+
+**A lista `--exclude` do consumidor de recolha passa a ser o único sítio que
+exige sincronia**, e a regra está no [capítulo 05](05-operacao.md): uma licença
+que ganhe unidade dedicada tem de constar ali. Dois consumidores na mesma fila
+partilham a lista de trânsito, o que duplica entregas e perde mensagens pelos
+mecanismos descritos no ponto 9.
+
+### O que não foi feito
+
+A **unidade templada** continua por fazer. Passou a ser conveniência de manutenção
+e não correção de defeito, uma vez que o consumidor de recolha já garante a
+entrega de qualquer licença.
+
+Um **aviso no descarte** da whitelist chegou a ser considerado, e deixou de ter
+objeto: com a lista vazia não há descarte que registar.
 
 ## 9. Mensagens só em memória entre a fila e a entrega
 
