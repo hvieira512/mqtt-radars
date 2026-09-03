@@ -20,10 +20,26 @@ Atualização:
 cd /root/mqtt-radars
 git fetch origin
 git checkout main
-git pull
-composer install --no-dev
-systemctl restart mqtt-worker mqtt-forward-1001 mqtt-forward-2004 mqtt-forward-2103
+git pull --ff-only
+for t in tests/*.php; do php "$t" || break; done
+
+systemctl restart mqtt-forward-1001    # canário: observar antes de seguir
+systemctl restart mqtt-forward-2004 mqtt-forward-2103
+systemctl restart mqtt-worker          # o único com custo
 ```
+
+**Correr os testes no servidor antes de reiniciar.** O servidor tem PHP 8.0 e
+uma máquina de desenvolvimento costuma ter uma versão mais recente: uma função
+introduzida depois do 8.0 passa localmente e rebenta na instalação.
+
+**Reiniciar por ordem.** Os consumidores não têm custo — lêem do Redis e a fila
+segura enquanto estão em baixo. O subscritor perde as mensagens publicadas na
+janela, por isso vai em último e a uma hora conveniente.
+
+> **`composer install` não faz parte da atualização.** O `vendor/` do servidor
+> tem versões mais recentes do que as fixadas no `composer.lock`, e correr o
+> comando faria *downgrade* do cliente MQTT em produção. Só depois de o lock ser
+> alinhado com o que está instalado.
 
 ## 2. Unidades systemd
 
