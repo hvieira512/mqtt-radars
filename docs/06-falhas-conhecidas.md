@@ -12,13 +12,16 @@ ordem de risco.
 | 5. Todas as falhas tratadas como iguais | **corrigido** — `App\BatchOutcome` classifica e a recusa é localizada |
 | 6. Não há espera entre tentativas | **corrigido** — espera crescente entre `FORWARD_RETRY_BASE_MS` e `FORWARD_RETRY_MAX_MS` |
 | 7. Canal `radar:ingest:*` sem subscritores | **corrigido** — chamada removida, e com ela oito dependências mortas do `composer.json` |
-| 8. Licença que comece a produzir dados sem ter consumidor | por fazer — não há consumidor genérico a correr, e a unidade templada resolve |
+| 8. Licença que comece a produzir dados sem ter consumidor | **adiado por decisão** — a unidade templada resolve, mas não vale um lançamento |
 | 9. Mensagens só em memória entre a fila e a entrega | **corrigido** — `LMOVE` para lista de trânsito, com recuperação no arranque |
 | 10. Sem identificador que permita desduplicar | **habilitado** — o `traceId` acompanha cada mensagem; desduplicar é decisão da plataforma |
 | 11. Elemento ilegível na fila derruba o consumidor em ciclo | **corrigido** — `App\QueueItem` valida à leitura, e o que não serve vai para `mqtt:forward_invalid:{licenca}` |
 | 12. Índices de recusa fora do lote geram ciclo infinito | **corrigido** — só contam índices existentes no lote; sem nenhum, recusa-se o lote inteiro |
 | 13. Licença do tópico entrava em cru na chave do Redis | **corrigido** — validada como inteiro positivo no `mqtt-worker` e em `getQueueKeys` |
 | 14. Espera crescente do subscritor no ramo errado | **corrigido** — aplica-se agora a ligação perdida e a ligação recusada |
+
+Doze corrigidas. Duas fechadas por decisão: a alarmística não pertence a este
+projeto, e a unidade templada não corrige defeito nenhum.
 
 As correções vivem no `forward-consumer.php`, no `mqtt-worker.php` e em
 `src/BatchOutcome.php`, `src/OutboundBatch.php` e `src/QueueItem.php`, com testes
@@ -206,9 +209,19 @@ enfileira-a e acrescenta-a a `mqtt:forward:licenses` sem que nada mais seja
 preciso — e, se não existir unidade para ela, as mensagens acumulam-se numa fila
 que ninguém lê. Sem erro, sem falha registada, e sem nada que o assinale.
 
-**Correção.** Unidade templada, `mqtt-forward@{licenca}.service`, com o
-identificador da licença como parâmetro da instância. Acrescentar uma licença
-passa a ser `systemctl enable --now mqtt-forward@2051`.
+**Correção conhecida, adiada por decisão.** Uma unidade templada,
+`mqtt-forward@.service`, com o identificador da licença como parâmetro da
+instância: três ficheiros passam a um, e acrescentar uma licença passa a ser
+`systemctl enable --now mqtt-forward@2051`. É o padrão que o
+`havicare-hub-client` já usa.
+
+Não foi feita porque não corrige defeito nenhum e o lançamento que a
+acompanharia já muda a semântica de entrega, liga a verificação de certificado e
+limita as filas de falhas. Juntar uma reorganização das unidades a essas
+alterações dá dois suspeitos em vez de um se algo correr mal.
+
+Com três licenças a mudarem raramente, o custo que evita não está a doer. Faz
+sentido quando aparecer uma quarta, como alteração isolada.
 
 ## 9. Mensagens só em memória entre a fila e a entrega
 
