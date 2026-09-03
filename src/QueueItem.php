@@ -32,10 +32,11 @@ class QueueItem
     public static function parse(string $raw, string $queueLicense): ?array
     {
         $decoded = json_decode($raw, true);
-        if (!is_array($decoded) || array_is_list($decoded)) {
+        if (!is_array($decoded)) {
             return null;
         }
 
+        // Exigir os campos basta: uma lista, um objeto vazio ou um escalar nao os tem.
         $topic = (string)($decoded['topic'] ?? '');
         $message = (string)($decoded['message'] ?? '');
         if ($topic === '' || $message === '') {

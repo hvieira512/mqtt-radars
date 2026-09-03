@@ -63,4 +63,7 @@ e sem `composer install`.
 
 ## Requisitos
 
-PHP 8.1 ou superior, Composer, Redis, e acesso ao broker MQTT.
+PHP 8.0 ou superior, Composer, Redis, e acesso ao broker MQTT.
+
+O servidor corre 8.0, e é esse o mínimo a respeitar: funções introduzidas em 8.1
+passam nos testes localmente e falham na instalação.
