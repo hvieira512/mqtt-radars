@@ -29,9 +29,9 @@ systemctl restart mqtt-forward-generic@1
 systemctl restart mqtt-worker          # o único com custo
 ```
 
-**Correr os testes no servidor antes de reiniciar.** O servidor tem PHP 8.0 e
-uma máquina de desenvolvimento costuma ter uma versão mais recente: uma função
-introduzida depois do 8.0 passa localmente e rebenta na instalação.
+**Correr os testes no servidor antes de reiniciar.** A máquina corre Debian 13
+com PHP 8.4, e uma máquina de desenvolvimento pode ter outra versão: uma função
+que exista só numa delas passa de um lado e rebenta do outro.
 
 **Reiniciar por ordem.** Os consumidores não têm custo — lêem do Redis e a fila
 segura enquanto estão em baixo. O subscritor perde as mensagens publicadas na
@@ -46,10 +46,10 @@ fixava um cliente MQTT mais antigo do que o instalado.
 
 ### Provisionar uma máquina do zero
 
-A configuração da máquina do broker está em [`deploy/`](../deploy): o
-`mosquitto.conf` efetivo, a `acl`, as sobreposições do Redis, a rotação dos logs
-e as seis unidades. O `install.sh` instala tudo isso, corre o `composer install` e
-os testes, e deixa as unidades *enabled* sem as arrancar.
+A configuração do router está em [`deploy/`](../deploy): a sobreposição do
+Redis, o teto do journal e as seis unidades. O `install.sh` instala os pacotes,
+esses três, corre o `composer install` e os testes, e deixa as unidades
+*enabled* sem as arrancar. Corre em Debian 13.
 
 ```bash
 git clone https://github.com/hvieira512/mqtt-radars.git /opt/mqtt-radars
@@ -57,42 +57,53 @@ cd /opt/mqtt-radars && git checkout main
 deploy/install.sh
 ```
 
-**O `install.sh` não instala segredos.** O `.env`, o `/etc/mosquitto/passwd` e o
-`/etc/letsencrypt` não estão neste repositório e nunca estarão: vêm da cópia de
-segurança da máquina anterior, com o `restaurar-segredos.sh` que a acompanha. Os
-resumos das passwords do broker não se invertem, e por isso perder aquele
-ficheiro obriga a emitir credenciais novas a todos os integradores.
+> **O `install.sh` não provisiona o broker, e é deliberado.** O mosquitto serve
+> também as duas instâncias do hub, o hub de NCS e a plataforma — o ACL dele tem
+> oito utilizadores e só um é nosso. Ter aqui uma cópia da configuração dele não
+> a tornava a fonte de verdade; tornava-a uma segunda cópia a envelhecer, que o
+> `install.sh` depois escrevia por cima da verdadeira.
+>
+> Foi o que esteve neste repositório até setembro de 2026, e a cópia já estava
+> três meses atrás: sem o `include_dir` onde vivem os listeners, a apontar a
+> certificados que a máquina não tem, e com `log_type all` — os três gigabytes
+> por dia que encheram o disco da máquina anterior.
+>
+> Numa máquina nova, o broker é uma dependência a confirmar com quem o mantém,
+> não um passo deste script: que está de pé, que o utilizador do router existe
+> no ACL, e qual o endereço para o `MQTT_SERVER`.
+
+**O `install.sh` não instala segredos.** O `.env` não está neste repositório e
+nunca estará: vem da cópia de segurança da máquina anterior, com o
+`restaurar-segredos.sh` que a acompanha.
 
 Depois dos segredos, arrancar pela ordem da secção anterior — o subscritor em
-último — e correr o `deploy/verificar.sh`, que confirma os serviços, as portas, o
-certificado, a rotação dos logs e que as duas famílias de tópicos estão a passar.
+último — e correr o `deploy/verificar.sh`, que confirma os nossos serviços, o
+Redis, o `.env`, que o broker está alcançável e que a telemetria passa.
 
-> **A rotação dos logs não é acessório.** A máquina anterior corria com
-> `log_type all` sem rotação nenhuma, e sem o subpacote `rsyslog-logrotate`,
-> que é quem instala a rotação do `/var/log/messages`. Chegou a 40 GB de logs em
-> 42 GB ocupados: 35 GB em `/var/log/messages`, escritos pelo `Logger` do
-> subscritor a uma linha por mensagem de radar, e 3,4 GB no log do broker.
+> **O teto do journal não é acessório.** As linhas do subscritor e dos
+> consumidores só ficam no journal, e por omissão ele cresce até 10% do sistema
+> de ficheiros — perto de 2,4 GB nos 24 GB desta máquina. O
+> `deploy/journald-mqtt-radars.conf` fixa-o em 1 GB.
 >
-> O `install.sh` trata das duas causas: instala o `rsyslog-logrotate` e o
-> `deploy/logrotate/mosquitto`, e acrescenta o
-> `deploy/rsyslog-mqtt-radars.conf`, que corta na origem a segunda cópia das
-> linhas do subscritor. O journal continua a tê-las todas, e
-> `journalctl -u mqtt-worker` continua a mostrá-las.
->
-> Cortada essa cópia, o journal passa a ser o único sítio onde aquelas linhas
-> ficam, e o seu teto deixa de ser detalhe: por omissão são 10% do sistema de
-> ficheiros, perto de 10 GB numa máquina destas. O
-> `deploy/journald-mqtt-radars.conf` fixa-o em 1 GB, que é o valor com que a
-> máquina antiga corria.
+> A máquina anterior, que era AlmaLinux com rsyslog, chegou a 40 GB de logs em
+> 42 GB ocupados, 35 GB deles em `/var/log/messages`. Esta não tem rsyslog
+> instalado e não tem `/var/log/messages`, por isso aquela fuga em concreto não
+> se repete — o que fica da lição é o teto.
 
 ### Mudar de endereço
 
-O broker é alcançado por dois caminhos, e só um deles é indireto:
+> Esta secção descreve o broker, que este repositório não administra. Está aqui
+> porque o prazo do reapontamento dos aparelhos é o que decide se uma migração
+> corre bem, e essa informação não estava escrita em mais lado nenhum.
 
-| Caminho | Quem o usa |
+Em setembro de 2026 o broker passou a ser alcançado pela rede interna, e os
+nomes públicos deixaram de servir:
+
+| Caminho | Estado |
 |---|---|
-| `mqtt.havicare.net` | O certificado e a sua renovação. Registo A na Cloudflare, com TTL de 300 s |
-| `88.99.104.197`, literal | As duas instâncias do hub, em `MQTT_HOST` e `QINGLANST_MQTT_HOST` |
+| `10.70.0.50:1883` | **É por aqui que tudo passa hoje** — o `MQTT_SERVER` do router e o `MQTT_HOST`/`QINGLANST_MQTT_HOST` das duas instâncias do hub |
+| `mqtt.havicare.net` → `88.99.104.197` | Não responde em 1883 nem em 8883, e a máquina não tem o certificado desse nome. O registo continua a existir |
+| `mqtt.havicare.com` | Não é o broker: resolve para a máquina do hub |
 
 **Se o endereço se mantiver, não há nada a reapontar.** Atribuir o IP à máquina
 nova basta, e os dispositivos reconectam-se sem intervenção.
