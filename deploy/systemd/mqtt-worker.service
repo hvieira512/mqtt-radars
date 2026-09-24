@@ -1,0 +1,17 @@
+[Unit]
+Description=MQTT Radar Worker
+After=network.target redis-server.service
+Wants=redis-server.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/mqtt-radars
+ExecStart=/usr/bin/php mqtt-worker.php
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,17 @@
+[Unit]
+Description=MQTT Forward Consumer for license 2103
+After=network.target redis-server.service
+Wants=redis-server.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/mqtt-radars
+ExecStart=/usr/bin/php forward-consumer.php --license=2103
+Restart=always
+RestartSec=2
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
