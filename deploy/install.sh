@@ -108,7 +108,7 @@ install -m 644 "$D"/systemd/*.service /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable redis mosquitto >/dev/null
 systemctl enable mqtt-worker >/dev/null
-systemctl enable mqtt-forward-1001 mqtt-forward-2004 mqtt-forward-2051 mqtt-forward-2103 >/dev/null
+systemctl enable mqtt-forward-1001 mqtt-forward-2004 mqtt-forward-2103 mqtt-forward-2137 >/dev/null
 systemctl enable 'mqtt-forward-generic@1' >/dev/null
 echo "   instaladas e enabled, nenhuma arrancada"
 
@@ -127,7 +127,7 @@ cat <<'FIM'
      perde mensagens enquanto está em baixo:
 
      systemctl start redis mosquitto
-     systemctl start mqtt-forward-1001 mqtt-forward-2004 mqtt-forward-2051 mqtt-forward-2103
+     systemctl start mqtt-forward-1001 mqtt-forward-2004 mqtt-forward-2103 mqtt-forward-2137
      systemctl start mqtt-forward-generic@1
      systemctl start mqtt-worker
 

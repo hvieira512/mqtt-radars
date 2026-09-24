@@ -19,7 +19,7 @@ teste() { if eval "$2" >/dev/null 2>&1; then ok "$1"; else falha "$1"; fi; }
 
 echo "== Serviços"
 for s in redis mosquitto mqtt-worker \
-         mqtt-forward-1001 mqtt-forward-2004 mqtt-forward-2051 mqtt-forward-2103 \
+         mqtt-forward-1001 mqtt-forward-2004 mqtt-forward-2103 mqtt-forward-2137 \
          'mqtt-forward-generic@1'; do
     teste "$s ativo" "[ \"\$(systemctl is-active '$s')\" = active ]"
 done
@@ -74,8 +74,8 @@ teste "sem erros de socket recentes"          "! tail -n 20000 $LOG 2>/dev/null 
 echo "== Filas"
 # Filas a crescer significam que a entrega não está a acompanhar. Vazias, ou
 # com poucos elementos, é o estado normal.
-for l in 1001 2004 2051 2103; do
-    n=$(redis-cli LLEN "mqtt:forward:queue:$l" 2>/dev/null || echo 0)
+for l in 1001 2004 2103 2137; do
+    n=$(redis-cli LLEN "mqtt:forward:$l" 2>/dev/null || echo 0)
     printf "  fila %s: %s elementos\n" "$l" "${n:-0}"
 done
 

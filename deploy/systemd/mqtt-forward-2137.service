@@ -1,5 +1,5 @@
 [Unit]
-Description=MQTT Forward Consumer for license 2051
+Description=MQTT Forward Consumer for license 2137
 After=network.target redis-server.service
 Wants=redis-server.service
 
@@ -7,7 +7,7 @@ Wants=redis-server.service
 Type=simple
 User=root
 WorkingDirectory=/opt/mqtt-radars
-ExecStart=/usr/bin/php forward-consumer.php --license=2051
+ExecStart=/usr/bin/php forward-consumer.php --license=2137
 Restart=always
 RestartSec=2
 StandardOutput=journal

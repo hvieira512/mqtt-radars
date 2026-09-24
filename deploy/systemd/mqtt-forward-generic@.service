@@ -7,7 +7,7 @@ Wants=redis-server.service
 Type=simple
 User=root
 WorkingDirectory=/opt/mqtt-radars
-ExecStart=/usr/bin/php forward-consumer.php --exclude=1001,2004,2051,2103
+ExecStart=/usr/bin/php forward-consumer.php --exclude=1001,2004,2103,2137
 Restart=always
 RestartSec=2
 StandardOutput=journal

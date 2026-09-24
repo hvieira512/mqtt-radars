@@ -24,7 +24,7 @@ git pull --ff-only
 for t in tests/*.php; do php "$t" || break; done
 
 systemctl restart mqtt-forward-1001    # canário: observar antes de seguir
-systemctl restart mqtt-forward-2004 mqtt-forward-2051 mqtt-forward-2103
+systemctl restart mqtt-forward-2004 mqtt-forward-2103 mqtt-forward-2137
 systemctl restart mqtt-forward-generic@1
 systemctl restart mqtt-worker          # o único com custo
 ```
@@ -140,10 +140,10 @@ cada uma está no ficheiro, e é ele a fonte de verdade.
 | Unidade | O que corre |
 |---|---|
 | `mqtt-worker` | `mqtt-worker.php` — o subscritor |
-| `mqtt-forward-1001` · `-2004` · `-2051` · `-2103` | `forward-consumer.php --license=N` |
-| `mqtt-forward-generic@1` | `forward-consumer.php --exclude=1001,2004,2051,2103` |
+| `mqtt-forward-1001` · `-2004` · `-2103` · `-2137` | `forward-consumer.php --license=N` |
+| `mqtt-forward-generic@1` | `forward-consumer.php --exclude=1001,2004,2103,2137` |
 
-Existem unidades dedicadas para as licenças 1001, 2004, 2051 e 2103, todas com
+Existem unidades dedicadas para as licenças 1001, 2004, 2103 e 2137, todas com
 `--license=N`. Servem para isolar umas das outras: um consumidor único atrasa
 todas as licenças quando uma plataforma responde devagar.
 
@@ -152,7 +152,7 @@ não tenham unidade própria:
 
 ```ini
 # /etc/systemd/system/mqtt-forward-generic@.service
-ExecStart=/usr/bin/php forward-consumer.php --exclude=1001,2004,2051,2103
+ExecStart=/usr/bin/php forward-consumer.php --exclude=1001,2004,2103,2137
 ```
 
 Com ele em execução nenhuma licença fica sem consumidor. Uma licença que comece
@@ -237,7 +237,7 @@ Execução manual, útil para diagnóstico:
 ```bash
 cd /opt/mqtt-radars
 php forward-consumer.php --license=2103 --dry-run    # resolve e regista, não envia
-php forward-consumer.php --exclude=1001,2004,2051,2103 --dry-run   # o que o de recolha serve
+php forward-consumer.php --exclude=1001,2004,2103,2137 --dry-run   # o que o de recolha serve
 ```
 
 ## 6. Verificações
